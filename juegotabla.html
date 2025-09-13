@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Batalla de Elementos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #283e51, #485563);
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #marcador {
+      font-size: 18px;
+      margin: 15px 0;
+    }
+
+    #juego {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .carta {
+      width: 220px;
+      height: 340px;
+      background: white;
+      color: black;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.6);
+      padding: 15px;
+      text-align: left;
+    }
+
+    .carta h2 {
+      margin: 0;
+      font-size: 20px;
+      color: #222;
+    }
+
+    .carta p {
+      margin: 5px 0;
+    }
+
+    #opciones {
+      margin-top: 20px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      background: #ff9800;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #e68900;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔥 Batalla de Elementos 🔥</h1>
+  <p>Selecciona una propiedad para comparar con la CPU.</p>
+
+  <div id="marcador">
+    👨 Jugador: <span id="puntosJugador">0</span> | 💻 CPU: <span id="puntosCPU">0</span>
+  </div>
+
+  <div id="juego">
+    <div class="carta" id="cartaJugador"></div>
+    <div class="carta" id="cartaCPU"></div>
+  </div>
+
+  <div id="opciones">
+    <button onclick="comparar('numeroAtomico')">Número Atómico</button>
+    <button onclick="comparar('masaAtomica')">Masa Atómica</button>
+    <button onclick="comparar('electronegatividad')">Electronegatividad</button>
+    <button onclick="comparar('grupo')">Grupo</button>
+    <button onclick="comparar('periodo')">Período</button>
+  </div>
+
+  <div id="resultado"></div>
+
+  <button onclick="reiniciarJuego()">🔄 Reiniciar Juego</button>
+
+  <script>
+    // Lista de elementos
+    const elementos = [
+      { nombre: "Hidrógeno", simbolo: "H", numeroAtomico: 1, masaAtomica: 1.008, electronegatividad: 2.20, estado: "Gas", grupo: 1, periodo: 1 },
+      { nombre: "Oxígeno", simbolo: "O", numeroAtomico: 8, masaAtomica: 15.999, electronegatividad: 3.44, estado: "Gas", grupo: 16, periodo: 2 },
+      { nombre: "Sodio", simbolo: "Na", numeroAtomico: 11, masaAtomica: 22.990, electronegatividad: 0.93, estado: "Sólido", grupo: 1, periodo: 3 },
+      { nombre: "Cloro", simbolo: "Cl", numeroAtomico: 17, masaAtomica: 35.45, electronegatividad: 3.16, estado: "Gas", grupo: 17, periodo: 3 },
+      { nombre: "Hierro", simbolo: "Fe", numeroAtomico: 26, masaAtomica: 55.845, electronegatividad: 1.83, estado: "Sólido", grupo: 8, periodo: 4 },
+      { nombre: "Carbono", simbolo: "C", numeroAtomico: 6, masaAtomica: 12.011, electronegatividad: 2.55, estado: "Sólido", grupo: 14, periodo: 2 },
+      { nombre: "Calcio", simbolo: "Ca", numeroAtomico: 20, masaAtomica: 40.078, electronegatividad: 1.00, estado: "Sólido", grupo: 2, periodo: 4 },
+      { nombre: "Nitrógeno", simbolo: "N", numeroAtomico: 7, masaAtomica: 14.007, electronegatividad: 3.04, estado: "Gas", grupo: 15, periodo: 2 },
+      { nombre: "Azufre", simbolo: "S", numeroAtomico: 16, masaAtomica: 32.06, electronegatividad: 2.58, estado: "Sólido", grupo: 16, periodo: 3 },
+      { nombre: "Potasio", simbolo: "K", numeroAtomico: 19, masaAtomica: 39.098, electronegatividad: 0.82, estado: "Sólido", grupo: 1, periodo: 4 }
+    ];
+
+    let cartaJugador, cartaCPU;
+    let puntosJugador = 0;
+    let puntosCPU = 0;
+
+    function nuevaRonda() {
+      cartaJugador = elementos[Math.floor(Math.random() * elementos.length)];
+      cartaCPU = elementos[Math.floor(Math.random() * elementos.length)];
+      mostrarCarta("cartaJugador", cartaJugador);
+      document.getElementById("cartaCPU").innerHTML = "<h2>CPU</h2><p>???</p>";
+      document.getElementById("resultado").innerText = "";
+    }
+
+    function mostrarCarta(id, carta) {
+      document.getElementById(id).innerHTML = `
+        <h2>${carta.nombre} (${carta.simbolo})</h2>
+        <p><b>Número Atómico:</b> ${carta.numeroAtomico}</p>
+        <p><b>Masa Atómica:</b> ${carta.masaAtomica}</p>
+        <p><b>Electronegatividad:</b> ${carta.electronegatividad}</p>
+        <p><b>Grupo:</b> ${carta.grupo}</p>
+        <p><b>Período:</b> ${carta.periodo}</p>
+        <p><b>Estado:</b> ${carta.estado}</p>
+      `;
+    }
+
+    function comparar(propiedad) {
+      mostrarCarta("cartaCPU", cartaCPU);
+      let valorJugador = cartaJugador[propiedad];
+      let valorCPU = cartaCPU[propiedad];
+      let resultado = "";
+
+      if (valorJugador > valorCPU) {
+        resultado = `🎉 ¡Ganaste la ronda! (${valorJugador} vs ${valorCPU})`;
+        puntosJugador++;
+      } else if (valorJugador < valorCPU) {
+        resultado = `💻 La CPU gana la ronda. (${valorCPU} vs ${valorJugador})`;
+        puntosCPU++;
+      } else {
+        resultado = `🤝 Empate. (${valorJugador} vs ${valorCPU})`;
+      }
+
+      document.getElementById("resultado").innerText = resultado;
+      actualizarMarcador();
+      setTimeout(nuevaRonda, 5000); // nueva ronda automática
+    }
+
+    function actualizarMarcador() {
+      document.getElementById("puntosJugador").innerText = puntosJugador;
+      document.getElementById("puntosCPU").innerText = puntosCPU;
+    }
+
+    function reiniciarJuego() {
+      puntosJugador = 0;
+      puntosCPU = 0;
+      actualizarMarcador();
+      nuevaRonda();
+    }
+
+    // Iniciar juego
+    nuevaRonda();
+  </script>
+
+</body>
+</html>
