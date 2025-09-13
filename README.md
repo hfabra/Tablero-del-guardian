@@ -1,3 +1,4 @@
+<img width="1919" height="817" alt="image" src="https://github.com/user-attachments/assets/829a67c4-48b4-4dd9-8c67-80a91d5bfa79" />
 Creado por hfabra@gmail.com
 Tablero de Puntuaciones (PHP + MySQL + Bootstrap) — COMPLETO (estudiantes + retos + puntuación)
 
