@@ -44,52 +44,91 @@ if (isset($_GET['eliminar'])) {
 
 $res = $conn->query("SELECT id, nombre, fecha_creacion FROM actividades ORDER BY id DESC");
 ?>
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3>Actividades</h3>
-</div>
+<section class="page-header card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+    <div>
+      <h1 class="page-title mb-1"><i class="bi bi-kanban"></i> Actividades</h1>
+      <p class="text-muted mb-0">Administra los retos, estudiantes y tableros de cada actividad en un solo lugar.</p>
+    </div>
+    <div class="text-md-end">
+      <span class="badge rounded-pill text-bg-primary-subtle text-primary"><i class="bi bi-lightning-charge-fill me-1"></i>Organiza y motiva</span>
+    </div>
+  </div>
+</section>
 
 <?php if ($actividadEdit): ?>
-  <div class="alert alert-info">Editando actividad <strong><?= htmlspecialchars($actividadEdit['nombre']) ?></strong>. <a href="actividades.php" class="alert-link">Cancelar</a></div>
+  <div class="alert alert-info shadow-sm">Editando actividad <strong><?= htmlspecialchars($actividadEdit['nombre']) ?></strong>. <a href="actividades.php" class="alert-link">Cancelar</a></div>
 <?php endif; ?>
 
-<form method="post" class="row g-3 mb-4">
+<form method="post" class="card border-0 shadow-sm mb-4">
   <input type="hidden" name="actividad_id" value="<?= $actividadEdit['id'] ?? '' ?>">
-  <div class="col-md-8">
-    <input type="text" name="nombre" class="form-control" placeholder="Nombre de la actividad" value="<?= htmlspecialchars($actividadEdit['nombre'] ?? '') ?>" required>
-  </div>
-  <div class="col-md-4 d-grid">
-    <button class="btn btn-primary"><?= $actividadEdit ? 'Actualizar actividad' : 'Crear actividad' ?></button>
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-8">
+        <label for="nombre" class="form-label fw-semibold">Nombre de la actividad</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-journal-text"></i></span>
+          <input type="text" id="nombre" name="nombre" class="form-control form-control-lg" placeholder="Ej. Reto de Matemáticas" value="<?= htmlspecialchars($actividadEdit['nombre'] ?? '') ?>" required>
+        </div>
+      </div>
+      <div class="col-md-4 d-grid">
+        <button class="btn btn-primary btn-lg">
+          <i class="bi <?= $actividadEdit ? 'bi-arrow-repeat' : 'bi-plus-circle' ?> me-2"></i>
+          <?= $actividadEdit ? 'Actualizar actividad' : 'Crear actividad' ?>
+        </button>
+      </div>
+    </div>
   </div>
 </form>
 
-<div class="table-responsive">
-<table class="table table-striped align-middle">
-  <thead>
-    <tr>
-      <th>#</th><th>Nombre</th><th>Fecha</th>
-      <th>Estudiantes</th>
-      <th>Retos</th>
-      <th>Tablero</th>
-      <th>Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    <?php while($a = $res->fetch_assoc()): ?>
-    <tr>
-      <td><?= $a['id'] ?></td>
-      <td><?= htmlspecialchars($a['nombre']) ?></td>
-      <td><?= $a['fecha_creacion'] ?></td>
-      <td><a class="btn btn-outline-secondary btn-sm" href="estudiantes.php?actividad_id=<?= $a['id'] ?>">Gestionar</a></td>
-      <td><a class="btn btn-outline-primary btn-sm" href="retos.php?actividad_id=<?= $a['id'] ?>">Retos</a></td>
-      <td><a class="btn btn-success btn-sm" href="puntuar.php?actividad_id=<?= $a['id'] ?>">Abrir tablero</a></td>
-      <td>
-        <a class="btn btn-secondary btn-sm" href="actividades.php?editar=<?= $a['id'] ?>">Editar</a>
-        <a class="btn btn-danger btn-sm" href="actividades.php?eliminar=<?= $a['id'] ?>" onclick="return confirm('¿Eliminar actividad y todo su contenido?');">Eliminar</a>
-      </td>
-    </tr>
-    <?php endwhile; ?>
-  </tbody>
-</table>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estudiantes</th>
+            <th>Retos</th>
+            <th>Tablero</th>
+            <th class="text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while($a = $res->fetch_assoc()): ?>
+          <tr>
+            <td><span class="badge rounded-pill text-bg-primary-soft">#<?= $a['id'] ?></span></td>
+            <td class="fw-medium text-dark"><?= htmlspecialchars($a['nombre']) ?></td>
+            <td class="text-muted"><i class="bi bi-calendar3 me-1"></i><?= $a['fecha_creacion'] ?></td>
+            <td>
+              <a class="btn btn-outline-secondary btn-sm rounded-pill" href="estudiantes.php?actividad_id=<?= $a['id'] ?>">
+                <i class="bi bi-people-fill me-1"></i>Gestionar
+              </a>
+            </td>
+            <td>
+              <a class="btn btn-outline-primary btn-sm rounded-pill" href="retos.php?actividad_id=<?= $a['id'] ?>">
+                <i class="bi bi-flag me-1"></i>Retos
+              </a>
+            </td>
+            <td>
+              <a class="btn btn-success btn-sm rounded-pill" href="puntuar.php?actividad_id=<?= $a['id'] ?>">
+                <i class="bi bi-graph-up-arrow me-1"></i>Tablero
+              </a>
+            </td>
+            <td class="text-end">
+              <div class="btn-group" role="group">
+                <a class="btn btn-outline-secondary btn-sm" href="actividades.php?editar=<?= $a['id'] ?>"><i class="bi bi-pencil-square"></i></a>
+                <a class="btn btn-outline-danger btn-sm" href="actividades.php?eliminar=<?= $a['id'] ?>" onclick="return confirm('¿Eliminar actividad y todo su contenido?');"><i class="bi bi-trash"></i></a>
+              </div>
+            </td>
+          </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <?php include 'includes/footer.php'; ?>
