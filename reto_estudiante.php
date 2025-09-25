@@ -79,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errores) {
+
         $stmtInsert = $conn->prepare('INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor) VALUES (?, ?, ?, ?, ?)');
 
         if (!$stmtInsert) {
@@ -101,6 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmtInsert->close();
         }
+        $stmtInsert = $conn->prepare('INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor) VALUES (?, ?, ?, ?, \"estudiante\")');
+        $stmtInsert->bind_param('iiss', $estudiante_id, $reto_id, $mensaje, $archivoNombre);
+        $stmtInsert->execute();
+        $_SESSION['retro_exito'] = '¡Tu retroalimentación fue enviada!';
+        header('Location: reto_estudiante.php?id='.$reto_id);
+        exit;
+ main
     }
 }
 
