@@ -48,11 +48,14 @@ $estudiantes=$stmt->get_result();
     <?php else: ?>
       <ul class="list-group">
         <?php while($r=$retos->fetch_assoc()): ?>
-          <li class="list-group-item">
-            <strong><?= htmlspecialchars($r['nombre']) ?></strong>
-            <?php if(!empty($r['descripcion'])): ?>
-              <div class="small text-muted"><?= htmlspecialchars($r['descripcion']) ?></div>
-            <?php endif; ?>
+          <li class="list-group-item d-flex justify-content-between align-items-start">
+            <div class="me-3">
+              <strong><a href="reto_detalle.php?id=<?= $r['id'] ?>" class="text-decoration-none"><?= htmlspecialchars($r['nombre']) ?></a></strong>
+              <?php if(!empty($r['descripcion'])): ?>
+                <div class="small text-muted"><?= htmlspecialchars($r['descripcion']) ?></div>
+              <?php endif; ?>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="reto_detalle.php?id=<?= $r['id'] ?>">Ver detalle</a>
           </li>
         <?php endwhile; ?>
       </ul>
