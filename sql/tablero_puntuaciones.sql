@@ -23,12 +23,21 @@ CREATE TABLE IF NOT EXISTS estudiantes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
   avatar VARCHAR(255) DEFAULT 'default.png',
-  actividad_id INT NOT NULL,
   usuario VARCHAR(60) NOT NULL,
   clave_acceso VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  CONSTRAINT fk_est_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_usuario_estudiante (usuario)
+) ENGINE=InnoDB;
+
+-- Relación actividades <-> estudiantes (muchos a muchos)
+CREATE TABLE IF NOT EXISTS actividad_estudiante (
+  actividad_id INT NOT NULL,
+  estudiante_id INT NOT NULL,
+  asignado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (actividad_id, estudiante_id),
+  CONSTRAINT fk_act_est_actividad FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE,
+  CONSTRAINT fk_act_est_estudiante FOREIGN KEY (estudiante_id) REFERENCES estudiantes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Habilidades
@@ -41,11 +50,13 @@ CREATE TABLE IF NOT EXISTS habilidades (
 CREATE TABLE IF NOT EXISTS puntuaciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   estudiante_id INT NOT NULL,
+  actividad_id INT NOT NULL,
   habilidad_id INT NOT NULL,
   puntaje INT NOT NULL DEFAULT 0,
   CONSTRAINT fk_punt_est FOREIGN KEY (estudiante_id) REFERENCES estudiantes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_punt_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE,
   CONSTRAINT fk_punt_hab FOREIGN KEY (habilidad_id) REFERENCES habilidades(id) ON DELETE CASCADE,
-  UNIQUE KEY uniq_est_hab (estudiante_id, habilidad_id)
+  UNIQUE KEY uniq_est_act_hab (estudiante_id, actividad_id, habilidad_id)
 ) ENGINE=InnoDB;
 
 -- Retos por actividad (solo informativos en esta versión)

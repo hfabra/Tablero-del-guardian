@@ -5,10 +5,11 @@ include 'includes/header_estudiante.php';
 
 $estudiante_id = (int)($_SESSION['estudiante_id'] ?? 0);
 
-$stmt = $conn->prepare('SELECT e.id, e.nombre, e.avatar, e.usuario, e.clave_acceso, e.actividad_id, a.nombre AS actividad_nombre FROM estudiantes e INNER JOIN actividades a ON a.id = e.actividad_id WHERE e.id = ? LIMIT 1');
+$stmt = $conn->prepare('SELECT id, nombre, avatar, usuario, clave_acceso FROM estudiantes WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $estudiante_id);
 $stmt->execute();
 $estudiante = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 if (!$estudiante) {
     echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-emoji-frown'></i></div><h4 class='fw-semibold mb-2'>Perfil no disponible</h4><p class='text-muted mb-0'>No encontramos tu registro. Por favor, contacta a tu docente.</p></div></div>";
@@ -16,29 +17,75 @@ if (!$estudiante) {
     exit;
 }
 
-$resPuntaje = $conn->query('SELECT COALESCE(SUM(puntaje),0) AS total FROM puntuaciones WHERE estudiante_id='.$estudiante_id);
-$puntajeTotal = $resPuntaje ? (int)$resPuntaje->fetch_assoc()['total'] : 0;
+$actividades = [];
+$stmtActividades = $conn->prepare('SELECT a.id, a.nombre FROM actividad_estudiante ae INNER JOIN actividades a ON a.id = ae.actividad_id WHERE ae.estudiante_id = ? ORDER BY a.nombre ASC');
+$stmtActividades->bind_param('i', $estudiante_id);
+$stmtActividades->execute();
+$resActividades = $stmtActividades->get_result();
+while ($fila = $resActividades->fetch_assoc()) {
+    $actividades[] = $fila;
+}
+$stmtActividades->close();
+
+if (!$actividades) {
+    echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-journal-x'></i></div><h4 class='fw-semibold mb-2'>Sin actividades asignadas</h4><p class='text-muted mb-0'>Aún no tienes actividades disponibles. Solicita a tu docente que te asigne a una.</p></div></div>";
+    include 'includes/footer.php';
+    exit;
+}
+
+$actividadSeleccionadaId = isset($_GET['actividad_id']) ? (int)$_GET['actividad_id'] : (int)$actividades[0]['id'];
+$actividadSeleccionada = null;
+foreach ($actividades as $actividadItem) {
+    if ((int)$actividadItem['id'] === $actividadSeleccionadaId) {
+        $actividadSeleccionada = $actividadItem;
+        break;
+    }
+}
+if (!$actividadSeleccionada) {
+    $actividadSeleccionada = $actividades[0];
+    $actividadSeleccionadaId = (int)$actividadSeleccionada['id'];
+}
+
+$stmtTotal = $conn->prepare('SELECT COALESCE(SUM(puntaje),0) AS total FROM puntuaciones WHERE estudiante_id = ? AND actividad_id = ?');
+$stmtTotal->bind_param('ii', $estudiante_id, $actividadSeleccionadaId);
+$stmtTotal->execute();
+$puntajeTotal = (int)($stmtTotal->get_result()->fetch_assoc()['total'] ?? 0);
+$stmtTotal->close();
 
 $retosStmt = $conn->prepare('SELECT id, nombre, descripcion FROM retos WHERE actividad_id = ? ORDER BY id DESC');
-$retosStmt->bind_param('i', $estudiante['actividad_id']);
+$retosStmt->bind_param('i', $actividadSeleccionadaId);
 $retosStmt->execute();
 $retos = $retosStmt->get_result();
 
 $retroConteo = [];
-$retroRes = $conn->prepare('SELECT reto_id, COUNT(*) AS total FROM retroalimentaciones WHERE estudiante_id = ? GROUP BY reto_id');
-$retroRes->bind_param('i', $estudiante_id);
+$retroRes = $conn->prepare('SELECT r.reto_id, COUNT(*) AS total FROM retroalimentaciones r INNER JOIN retos rt ON rt.id = r.reto_id WHERE r.estudiante_id = ? AND rt.actividad_id = ? GROUP BY r.reto_id');
+$retroRes->bind_param('ii', $estudiante_id, $actividadSeleccionadaId);
 $retroRes->execute();
 $retroData = $retroRes->get_result();
 while ($fila = $retroData->fetch_assoc()) {
     $retroConteo[(int)$fila['reto_id']] = (int)$fila['total'];
 }
+$retroRes->close();
 ?>
 
 <section class="page-header card border-0 shadow-sm mb-4">
   <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
     <div>
       <h1 class="page-title mb-1"><i class="bi bi-person-video3"></i> Mi espacio de aprendizaje</h1>
-      <p class="page-subtitle mb-0">Actividad asignada: <span class="fw-semibold text-dark"><?= htmlspecialchars($estudiante['actividad_nombre']) ?></span>.</p>
+      <p class="page-subtitle mb-0">Actividad actual: <span class="fw-semibold text-dark"><?= htmlspecialchars($actividadSeleccionada['nombre']) ?></span>.</p>
+      <?php if (count($actividades) > 1): ?>
+        <div class="mt-2">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Actividades disponibles">
+            <?php foreach ($actividades as $actividadItem): ?>
+              <?php $esActual = (int)$actividadItem['id'] === $actividadSeleccionadaId; ?>
+              <a href="perfil_estudiante.php?actividad_id=<?= $actividadItem['id'] ?>" class="btn <?= $esActual ? 'btn-primary' : 'btn-outline-primary' ?>">
+                <?= htmlspecialchars($actividadItem['nombre']) ?>
+              </a>
+            <?php endforeach; ?>
+          </div>
+          <p class="form-text mb-0 mt-1">Selecciona una actividad para ver sus retos y mensajes.</p>
+        </div>
+      <?php endif; ?>
     </div>
     <div class="list-actions justify-content-lg-end">
       <a href="logout_estudiante.php" class="btn btn-outline-light btn-icon"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
@@ -52,7 +99,7 @@ while ($fila = $retroData->fetch_assoc()) {
       <div class="card-body text-center">
         <img src="assets/img/avatars/<?= htmlspecialchars($estudiante['avatar']) ?>" class="avatar-xl shadow-sm mb-3" alt="Avatar de <?= htmlspecialchars($estudiante['nombre']) ?>">
         <h3 class="fw-semibold mb-1"><?= htmlspecialchars($estudiante['nombre']) ?></h3>
-        <p class="text-muted mb-3">Grupo: <?= htmlspecialchars($estudiante['actividad_nombre']) ?></p>
+        <p class="text-muted mb-3">Grupo: <?= htmlspecialchars($actividadSeleccionada['nombre']) ?></p>
         <div class="badge rounded-pill text-bg-primary-subtle px-3 py-2 mb-3"><i class="bi bi-stars me-1"></i> <?= $puntajeTotal ?> puntos</div>
         <div class="credential-box p-3 rounded">
           <p class="text-muted text-uppercase small mb-2">Mis credenciales</p>
