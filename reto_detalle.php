@@ -21,7 +21,7 @@ if ($reto_id <= 0) {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT r.id, r.nombre, r.descripcion, r.imagen, r.video_url, r.pdf, a.id AS actividad_id, a.nombre AS actividad_nombre FROM retos r INNER JOIN actividades a ON r.actividad_id = a.id WHERE r.id = ?");
+$stmt = $conn->prepare("SELECT r.id, r.nombre, r.descripcion, r.imagen, r.video_url, r.pdf, r.icono, a.id AS actividad_id, a.nombre AS actividad_nombre FROM retos r INNER JOIN actividades a ON r.actividad_id = a.id WHERE r.id = ?");
 $stmt->bind_param("i", $reto_id);
 $stmt->execute();
 $reto = $stmt->get_result()->fetch_assoc();
@@ -36,7 +36,10 @@ $video_embed = obtenerEmbedYoutube($reto['video_url'] ?? null);
 ?>
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div>
-    <h3 class="mb-1"><?= htmlspecialchars($reto['nombre']) ?></h3>
+    <h3 class="mb-1 d-flex align-items-center gap-2">
+      <span class="display-6"><?= ($reto['icono'] ?? '') !== '' ? htmlspecialchars($reto['icono']) : '🎯' ?></span>
+      <span><?= htmlspecialchars($reto['nombre']) ?></span>
+    </h3>
     <p class="text-muted mb-0">Actividad: <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>"><?= htmlspecialchars($reto['actividad_nombre']) ?></a></p>
   </div>
   <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>" class="btn btn-outline-secondary">Volver</a>

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS retos (
   actividad_id INT NOT NULL,
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
+  icono VARCHAR(50),
   imagen VARCHAR(255),
   video_url VARCHAR(255),
   pdf VARCHAR(255),
