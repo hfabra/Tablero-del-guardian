@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS retos (
   actividad_id INT NOT NULL,
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
+  imagen VARCHAR(255),
+  video_url VARCHAR(255),
+  pdf VARCHAR(255),
   CONSTRAINT fk_reto_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
