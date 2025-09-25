@@ -4,11 +4,32 @@ require_once 'includes/protect.php';
 include 'includes/header.php';
 
 // Crear actividad
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nombre'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nombre']) && empty($_POST['actividad_id'])) {
   $nombre = trim($_POST['nombre']);
   if ($nombre !== '') {
     $stmt = $conn->prepare("INSERT INTO actividades (nombre) VALUES (?)");
     $stmt->bind_param("s", $nombre);
+    $stmt->execute();
+  }
+  header("Location: actividades.php"); exit;
+}
+
+// Editar actividad
+$actividadEdit = null;
+if (isset($_GET['editar'])) {
+  $editarId = (int)$_GET['editar'];
+  $stmt = $conn->prepare("SELECT id, nombre FROM actividades WHERE id=?");
+  $stmt->bind_param("i", $editarId);
+  $stmt->execute();
+  $actividadEdit = $stmt->get_result()->fetch_assoc();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actividad_id']) && !empty($_POST['actividad_id'])) {
+  $actividadId = (int)$_POST['actividad_id'];
+  $nombre = trim($_POST['nombre']);
+  if ($nombre !== '') {
+    $stmt = $conn->prepare("UPDATE actividades SET nombre=? WHERE id=?");
+    $stmt->bind_param("si", $nombre, $actividadId);
     $stmt->execute();
   }
   header("Location: actividades.php"); exit;
@@ -27,12 +48,17 @@ $res = $conn->query("SELECT id, nombre, fecha_creacion FROM actividades ORDER BY
   <h3>Actividades</h3>
 </div>
 
+<?php if ($actividadEdit): ?>
+  <div class="alert alert-info">Editando actividad <strong><?= htmlspecialchars($actividadEdit['nombre']) ?></strong>. <a href="actividades.php" class="alert-link">Cancelar</a></div>
+<?php endif; ?>
+
 <form method="post" class="row g-3 mb-4">
+  <input type="hidden" name="actividad_id" value="<?= $actividadEdit['id'] ?? '' ?>">
   <div class="col-md-8">
-    <input type="text" name="nombre" class="form-control" placeholder="Nombre de la actividad" required>
+    <input type="text" name="nombre" class="form-control" placeholder="Nombre de la actividad" value="<?= htmlspecialchars($actividadEdit['nombre'] ?? '') ?>" required>
   </div>
   <div class="col-md-4 d-grid">
-    <button class="btn btn-primary">Crear actividad</button>
+    <button class="btn btn-primary"><?= $actividadEdit ? 'Actualizar actividad' : 'Crear actividad' ?></button>
   </div>
 </form>
 
@@ -56,7 +82,10 @@ $res = $conn->query("SELECT id, nombre, fecha_creacion FROM actividades ORDER BY
       <td><a class="btn btn-outline-secondary btn-sm" href="estudiantes.php?actividad_id=<?= $a['id'] ?>">Gestionar</a></td>
       <td><a class="btn btn-outline-primary btn-sm" href="retos.php?actividad_id=<?= $a['id'] ?>">Retos</a></td>
       <td><a class="btn btn-success btn-sm" href="puntuar.php?actividad_id=<?= $a['id'] ?>">Abrir tablero</a></td>
-      <td><a class="btn btn-danger btn-sm" href="actividades.php?eliminar=<?= $a['id'] ?>" onclick="return confirm('¿Eliminar actividad y todo su contenido?');">Eliminar</a></td>
+      <td>
+        <a class="btn btn-secondary btn-sm" href="actividades.php?editar=<?= $a['id'] ?>">Editar</a>
+        <a class="btn btn-danger btn-sm" href="actividades.php?eliminar=<?= $a['id'] ?>" onclick="return confirm('¿Eliminar actividad y todo su contenido?');">Eliminar</a>
+      </td>
     </tr>
     <?php endwhile; ?>
   </tbody>
