@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/db.php';
+require_once 'includes/protect.php';
 include 'includes/header.php';
 
 $estudiante_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

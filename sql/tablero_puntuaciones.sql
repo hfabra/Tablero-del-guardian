@@ -2,6 +2,15 @@
 CREATE DATABASE IF NOT EXISTS tablero_puntuaciones CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE tablero_puntuaciones;
 
+-- Usuarios administradores del tablero
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 -- Actividades
 CREATE TABLE IF NOT EXISTS actividades (
   id INT AUTO_INCREMENT PRIMARY KEY,
