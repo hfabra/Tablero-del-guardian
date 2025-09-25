@@ -46,6 +46,11 @@ if (!$reto) {
 
 $video_embed = obtenerEmbedYoutube($reto['video_url'] ?? null);
 $contenido_blog = limpiarContenidoBlog($reto['contenido_blog'] ?? null);
+
+$retroStmt = $conn->prepare('SELECT r.id, r.mensaje, r.archivo, r.autor, r.creado_en, e.nombre AS estudiante_nombre FROM retroalimentaciones r INNER JOIN estudiantes e ON e.id = r.estudiante_id WHERE r.reto_id = ? ORDER BY r.creado_en DESC');
+$retroStmt->bind_param('i', $reto_id);
+$retroStmt->execute();
+$retroalimentaciones = $retroStmt->get_result();
 ?>
 <section class="page-header card border-0 shadow-sm mb-4">
   <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
@@ -114,6 +119,38 @@ $contenido_blog = limpiarContenidoBlog($reto['contenido_blog'] ?? null);
     <?php endif; ?>
   </div>
 </div>
+
+<?php if ($retroalimentaciones->num_rows > 0): ?>
+  <div class="card section-card mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 fw-semibold mb-0"><i class="bi bi-chat-square-text"></i> Retroalimentaciones de estudiantes</h2>
+        <span class="badge rounded-pill bg-primary-subtle text-primary"><i class="bi bi-people"></i> <?= $retroalimentaciones->num_rows ?> registros</span>
+      </div>
+      <div class="timeline-feedback">
+        <?php while ($retro = $retroalimentaciones->fetch_assoc()): ?>
+          <div class="timeline-item">
+            <div class="timeline-dot <?= $retro['autor'] === 'docente' ? 'bg-primary' : '' ?>"></div>
+            <div class="timeline-content">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-semibold text-dark"><i class="bi <?= $retro['autor'] === 'docente' ? 'bi-mortarboard-fill' : 'bi-person-badge-fill' ?> me-1"></i><?= htmlspecialchars($retro['autor'] === 'docente' ? 'Docente' : $retro['estudiante_nombre']) ?></span>
+                <span class="text-muted small"><i class="bi bi-clock-history me-1"></i><?= $retro['creado_en'] ?></span>
+              </div>
+              <?php if (!empty($retro['mensaje'])): ?>
+                <p class="mb-2"><?= nl2br(htmlspecialchars($retro['mensaje'])) ?></p>
+              <?php endif; ?>
+              <?php if (!empty($retro['archivo'])): ?>
+                <a class="btn btn-sm btn-outline-secondary btn-icon" href="assets/retroalimentaciones/<?= htmlspecialchars($retro['archivo']) ?>" target="_blank" rel="noopener"><i class="bi bi-paperclip"></i> Ver adjunto</a>
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php endwhile; ?>
+      </div>
+    </div>
+  </div>
+<?php else: ?>
+  <div class="alert alert-secondary mt-4"><i class="bi bi-chat-square-dots me-2"></i>Aún no hay retroalimentaciones registradas para este reto.</div>
+<?php endif; ?>
 
 <style>
   .badge.text-bg-primary-soft {
