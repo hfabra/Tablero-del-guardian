@@ -38,14 +38,22 @@ function subirArchivo(string $campo, array $extensionesPermitidas): ?string {
 }
 
 $actividad_id = isset($_GET['actividad_id']) ? (int)$_GET['actividad_id'] : 0;
-if ($actividad_id <= 0) { echo "<div class='alert alert-danger'>Actividad no valida.</div>"; include 'includes/footer.php'; exit; }
+if ($actividad_id <= 0) {
+  echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-exclamation-diamond'></i></div><h4 class='fw-semibold mb-2'>Actividad no válida</h4><p class='text-muted mb-0'>Selecciona una actividad desde <a href='actividades.php'>Actividades</a> para gestionar sus retos.</p></div></div>";
+  include 'includes/footer.php';
+  exit;
+}
 
 // Obtener actividad
 $stmt = $conn->prepare("SELECT id, nombre FROM actividades WHERE id=?");
 $stmt->bind_param("i", $actividad_id);
 $stmt->execute();
 $actividad = $stmt->get_result()->fetch_assoc();
-if (!$actividad) { echo "<div class='alert alert-danger'>Actividad no encontrada.</div>"; include 'includes/footer.php'; exit; }
+if (!$actividad) {
+  echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-search'></i></div><h4 class='fw-semibold mb-2'>Actividad no encontrada</h4><p class='text-muted mb-0'>Es posible que haya sido eliminada. Revisa el listado de actividades disponibles.</p></div></div>";
+  include 'includes/footer.php';
+  exit;
+}
 
 // Editar reto
 $retoEdit = null;
@@ -159,63 +167,102 @@ $res->bind_param("i", $actividad_id);
 $res->execute();
 $retos = $res->get_result();
 ?>
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3>Retos - <?= htmlspecialchars($actividad['nombre']) ?></h3>
-  <a href="actividades.php" class="btn btn-outline-secondary">Volver</a>
-</div>
+
+<section class="page-header card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+    <div>
+      <h1 class="page-title mb-1"><i class="bi bi-flag"></i> Retos</h1>
+      <p class="page-subtitle mb-0">Actividad: <span class="fw-semibold text-dark"><?= htmlspecialchars($actividad['nombre']) ?></span>. Diseña desafíos motivadores para tu grupo.</p>
+    </div>
+    <div class="list-actions justify-content-lg-end">
+      <a href="actividades.php" class="btn btn-outline-primary btn-icon"><i class="bi bi-arrow-left"></i> Volver a actividades</a>
+      <a href="puntuar.php?actividad_id=<?= $actividad_id ?>" class="btn btn-success btn-icon"><i class="bi bi-graph-up"></i> Ver tablero</a>
+    </div>
+  </div>
+</section>
 
 <?php if ($retoEdit): ?>
-  <div class="alert alert-info">Editando reto <strong><?= htmlspecialchars($retoEdit['nombre']) ?></strong>. <a href="retos.php?actividad_id=<?= $actividad_id ?>" class="alert-link">Cancelar</a></div>
+  <div class="alert alert-info shadow-sm">Editando reto <strong><?= htmlspecialchars($retoEdit['nombre']) ?></strong>. <a href="retos.php?actividad_id=<?= $actividad_id ?>" class="alert-link">Cancelar</a></div>
 <?php endif; ?>
 
-<form method="post" class="row g-3 mb-4" enctype="multipart/form-data">
+<form method="post" class="card section-card mb-4" enctype="multipart/form-data">
   <input type="hidden" name="reto_id" value="<?= $retoEdit['id'] ?? '' ?>">
-  <div class="col-md-4">
-    <input type="text" name="nombre" class="form-control" placeholder="Nombre del reto" value="<?= htmlspecialchars($retoEdit['nombre'] ?? '') ?>" required>
-  </div>
-  <div class="col-md-4">
-    <input type="text" name="descripcion" class="form-control" placeholder="Descripción (opcional)" value="<?= htmlspecialchars($retoEdit['descripcion'] ?? '') ?>">
-  </div>
-  <div class="col-md-4">
-    <input type="url" name="video_url" class="form-control" placeholder="URL de video de YouTube (opcional)" value="<?= htmlspecialchars($retoEdit['video_url'] ?? '') ?>">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Imagen (opcional)</label>
-    <?php if (!empty($retoEdit) && !empty($retoEdit['imagen'])): ?><div class="form-text">Se reemplazará la imagen actual al subir una nueva.</div><?php endif; ?>
-    <input type="file" name="imagen" class="form-control" accept="image/*">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Archivo PDF (opcional)</label>
-    <?php if (!empty($retoEdit) && !empty($retoEdit['pdf'])): ?><div class="form-text">Se reemplazará el PDF actual al subir uno nuevo.</div><?php endif; ?>
-    <input type="file" name="pdf" class="form-control" accept="application/pdf">
-  </div>
-  <div class="col-md-4 d-grid align-content-end">
-    <button class="btn btn-primary"><?= $retoEdit ? 'Actualizar reto' : 'Agregar reto' ?></button>
+  <div class="card-body">
+    <div class="row g-4 align-items-start">
+      <div class="col-lg-4">
+        <label for="nombre" class="form-label fw-semibold">Nombre del reto</label>
+        <div class="input-group input-group-lg">
+          <span class="input-group-text"><i class="bi bi-flag-fill"></i></span>
+          <input type="text" id="nombre" name="nombre" class="form-control" placeholder="Ej. Super misión semanal" value="<?= htmlspecialchars($retoEdit['nombre'] ?? '') ?>" required>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <label for="descripcion" class="form-label fw-semibold">Descripción</label>
+        <textarea id="descripcion" name="descripcion" rows="1" class="form-control" placeholder="Breve contexto del reto (opcional)"><?= htmlspecialchars($retoEdit['descripcion'] ?? '') ?></textarea>
+      </div>
+      <div class="col-lg-4">
+        <label for="video_url" class="form-label fw-semibold">Video de referencia</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-youtube"></i></span>
+          <input type="url" id="video_url" name="video_url" class="form-control" placeholder="https://" value="<?= htmlspecialchars($retoEdit['video_url'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <label for="imagen" class="form-label fw-semibold">Imagen destacada</label>
+        <?php if (!empty($retoEdit) && !empty($retoEdit['imagen'])): ?><div class="form-text mb-2">Cargar un archivo reemplazará la imagen actual.</div><?php endif; ?>
+        <input type="file" id="imagen" name="imagen" class="form-control" accept="image/*">
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <label for="pdf" class="form-label fw-semibold">Documento PDF</label>
+        <?php if (!empty($retoEdit) && !empty($retoEdit['pdf'])): ?><div class="form-text mb-2">Se reemplazará el documento existente.</div><?php endif; ?>
+        <input type="file" id="pdf" name="pdf" class="form-control" accept="application/pdf">
+      </div>
+      <div class="col-lg-4 d-grid align-content-end">
+        <button class="btn btn-primary btn-icon btn-lg">
+          <i class="bi <?= $retoEdit ? 'bi-arrow-repeat' : 'bi-plus-circle' ?>"></i>
+          <?= $retoEdit ? 'Actualizar reto' : 'Agregar reto' ?>
+        </button>
+      </div>
+    </div>
   </div>
 </form>
 
-<div class="table-responsive">
-<table class="table table-striped align-middle">
-  <thead><tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Adjuntos</th><th>Acciones</th></tr></thead>
-  <tbody>
-    <?php while($r = $retos->fetch_assoc()): ?>
-      <tr>
-        <td><?= $r['id'] ?></td>
-        <td><a href="reto_detalle.php?id=<?= $r['id'] ?>" class="text-decoration-none"><?= htmlspecialchars($r['nombre']) ?></a></td>
-        <td><?= htmlspecialchars($r['descripcion']) ?></td>
-        <td>
-          <?php if(!empty($r['imagen'])): ?><span class="badge bg-info me-1">Imagen</span><?php endif; ?>
-          <?php if(!empty($r['video_url'])): ?><span class="badge bg-danger me-1">Video</span><?php endif; ?>
-          <?php if(!empty($r['pdf'])): ?><span class="badge bg-secondary">PDF</span><?php endif; ?>
-        </td>
-        <td>
-          <a class="btn btn-sm btn-secondary" href="retos.php?actividad_id=<?= $actividad_id ?>&editar=<?= $r['id'] ?>">Editar</a>
-          <a class="btn btn-sm btn-danger" href="retos.php?actividad_id=<?= $actividad_id ?>&eliminar=<?= $r['id'] ?>" onclick="return confirm('¿Eliminar reto?');">Eliminar</a>
-        </td>
-      </tr>
-    <?php endwhile; ?>
-  </tbody>
-</table>
+<div class="card table-card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th class="text-uppercase">#</th>
+          <th class="text-uppercase">Nombre</th>
+          <th class="text-uppercase">Descripción</th>
+          <th class="text-uppercase">Recursos</th>
+          <th class="text-end text-uppercase">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php while($r = $retos->fetch_assoc()): ?>
+          <tr>
+            <td><span class="badge text-bg-primary-soft">#<?= $r['id'] ?></span></td>
+            <td class="fw-semibold text-dark"><a href="reto_detalle.php?id=<?= $r['id'] ?>" class="text-decoration-none text-dark"><i class="bi bi-link-45deg me-1"></i><?= htmlspecialchars($r['nombre']) ?></a></td>
+            <td class="text-muted"><?= htmlspecialchars($r['descripcion']) ?: '<span class="fst-italic">Sin descripción</span>' ?></td>
+            <td>
+              <div class="list-actions">
+                <?php if(!empty($r['imagen'])): ?><span class="badge rounded-pill text-bg-primary-subtle"><i class="bi bi-image-fill me-1"></i>Imagen</span><?php endif; ?>
+                <?php if(!empty($r['video_url'])): ?><span class="badge rounded-pill bg-danger-subtle text-danger"><i class="bi bi-camera-video-fill me-1"></i>Video</span><?php endif; ?>
+                <?php if(!empty($r['pdf'])): ?><span class="badge rounded-pill bg-secondary-subtle text-secondary"><i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF</span><?php endif; ?>
+              </div>
+            </td>
+            <td class="text-end">
+              <div class="btn-group" role="group">
+                <a class="btn btn-sm btn-outline-secondary btn-icon" href="retos.php?actividad_id=<?= $actividad_id ?>&editar=<?= $r['id'] ?>"><i class="bi bi-pencil"></i> Editar</a>
+                <a class="btn btn-sm btn-outline-danger btn-icon" href="retos.php?actividad_id=<?= $actividad_id ?>&eliminar=<?= $r['id'] ?>" onclick="return confirm('¿Eliminar reto?');"><i class="bi bi-trash"></i> Quitar</a>
+              </div>
+            </td>
+          </tr>
+        <?php endwhile; ?>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <?php include 'includes/footer.php'; ?>
