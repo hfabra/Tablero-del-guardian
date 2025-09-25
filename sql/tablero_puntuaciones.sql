@@ -24,7 +24,11 @@ CREATE TABLE IF NOT EXISTS estudiantes (
   nombre VARCHAR(100) NOT NULL,
   avatar VARCHAR(255) DEFAULT 'default.png',
   actividad_id INT NOT NULL,
-  CONSTRAINT fk_est_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE
+  usuario VARCHAR(60) NOT NULL,
+  clave_acceso VARCHAR(120) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  CONSTRAINT fk_est_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_usuario_estudiante (usuario)
 ) ENGINE=InnoDB;
 
 -- Habilidades
@@ -55,6 +59,19 @@ CREATE TABLE IF NOT EXISTS retos (
   video_url VARCHAR(255),
   pdf VARCHAR(255),
   CONSTRAINT fk_reto_act FOREIGN KEY (actividad_id) REFERENCES actividades(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Retroalimentaciones entre estudiantes y docentes
+CREATE TABLE IF NOT EXISTS retroalimentaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  estudiante_id INT NOT NULL,
+  reto_id INT NOT NULL,
+  mensaje TEXT,
+  archivo VARCHAR(255),
+  autor ENUM('estudiante','docente') DEFAULT 'estudiante',
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_retro_est FOREIGN KEY (estudiante_id) REFERENCES estudiantes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_retro_reto FOREIGN KEY (reto_id) REFERENCES retos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Semillas de habilidades
