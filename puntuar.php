@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/db.php';
+require_once 'includes/protect.php';
 include 'includes/header.php';
 
 $actividad_id = isset($_GET['actividad_id']) ? (int)$_GET['actividad_id'] : 0;

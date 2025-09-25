@@ -9,6 +9,7 @@ Tablero de Puntuaciones (PHP + MySQL + Bootstrap) — COMPLETO (estudiantes + re
 2) Copie la carpeta 'tablero_puntuaciones_full' a htdocs (XAMPP).
 3) Ajuste credenciales en includes/db.php si es necesario.
 4) Abra: http://localhost/tablero_puntuaciones_full/
+5) Registre la primera cuenta de administrador desde registro.php y úsela para iniciar sesión.
 
 Flujo:
 - Cree una ACTIVIDAD en actividades.php.
@@ -17,6 +18,7 @@ Flujo:
 - En "Habilidades" agregue/edite habilidades si lo necesita.
 - En "Abrir tablero" verá tarjetas de estudiantes con su total de puntos.
 - Botón "Puntuar" permite +1/-1 por habilidad para el estudiante.
+- Use el menú superior para cerrar sesión cuando termine.
 
 Notas:
 - Los retos son informativos en el tablero en esta versión. Si desea que otorguen puntos y se marquen por estudiante (completado/no completado), se puede añadir fácilmente con una tabla 'retos_estudiantes' y una columna 'puntos' en retos.

@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/db.php';
+require_once 'includes/protect.php';
 
 $estudiante = isset($_GET['estudiante']) ? (int)$_GET['estudiante'] : 0;
 $habilidad = isset($_GET['habilidad']) ? (int)$_GET['habilidad'] : 0;
