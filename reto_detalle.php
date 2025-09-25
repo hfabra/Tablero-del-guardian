@@ -16,7 +16,7 @@ function obtenerEmbedYoutube(?string $url): ?string {
 
 $reto_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($reto_id <= 0) {
-    echo "<div class='alert alert-danger'>Reto no válido.</div>";
+    echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-flag'></i></div><h4 class='fw-semibold mb-2'>Reto no válido</h4><p class='text-muted mb-0'>Regresa al listado de <a href='actividades.php'>actividades</a> para seleccionar uno disponible.</p></div></div>";
     include 'includes/footer.php';
     exit;
 }
@@ -27,51 +27,69 @@ $stmt->execute();
 $reto = $stmt->get_result()->fetch_assoc();
 
 if (!$reto) {
-    echo "<div class='alert alert-danger'>Reto no encontrado.</div>";
+    echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-search'></i></div><h4 class='fw-semibold mb-2'>Reto no encontrado</h4><p class='text-muted mb-0'>Es posible que haya sido eliminado. Revisa los retos disponibles en la actividad.</p></div></div>";
     include 'includes/footer.php';
     exit;
 }
 
 $video_embed = obtenerEmbedYoutube($reto['video_url'] ?? null);
 ?>
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <div>
-    <h3 class="mb-1"><?= htmlspecialchars($reto['nombre']) ?></h3>
-    <p class="text-muted mb-0">Actividad: <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>"><?= htmlspecialchars($reto['actividad_nombre']) ?></a></p>
+<section class="page-header card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+    <div>
+      <h1 class="page-title mb-1"><i class="bi bi-flag-fill"></i> <?= htmlspecialchars($reto['nombre']) ?></h1>
+      <p class="page-subtitle mb-0">Actividad: <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>" class="fw-semibold text-decoration-none"><?= htmlspecialchars($reto['actividad_nombre']) ?></a></p>
+    </div>
+    <div class="list-actions justify-content-lg-end">
+      <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>" class="btn btn-outline-primary btn-icon"><i class="bi bi-arrow-left"></i> Volver al listado</a>
+      <a href="puntuar.php?actividad_id=<?= $reto['actividad_id'] ?>" class="btn btn-success btn-icon"><i class="bi bi-graph-up-arrow"></i> Ver tablero</a>
+    </div>
   </div>
-  <a href="retos.php?actividad_id=<?= $reto['actividad_id'] ?>" class="btn btn-outline-secondary">Volver</a>
-</div>
+</section>
 
-<div class="card">
+<div class="card section-card">
   <div class="card-body">
-    <h5 class="card-title">Descripción</h5>
-    <p class="card-text"><?= nl2br(htmlspecialchars($reto['descripcion'] ?? '')) ?: '<span class="text-muted">Sin descripción</span>' ?></p>
+    <div class="d-flex flex-column flex-lg-row gap-4">
+      <div class="flex-grow-1">
+        <h5 class="fw-semibold mb-3">Descripción</h5>
+        <p class="text-muted mb-4"><?= nl2br(htmlspecialchars($reto['descripcion'] ?? '')) ?: '<span class="fst-italic">Sin descripción registrada</span>' ?></p>
 
-    <?php if (!empty($reto['imagen'])): ?>
-      <div class="mt-4">
-        <h5>Imagen</h5>
-        <img src="<?= htmlspecialchars($reto['imagen']) ?>" alt="Imagen del reto" class="img-fluid rounded border">
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          <?php if (!empty($reto['imagen'])): ?><span class="badge rounded-pill text-bg-primary-subtle"><i class="bi bi-image-fill me-1"></i>Imagen</span><?php endif; ?>
+          <?php if (!empty($reto['video_url'])): ?><span class="badge rounded-pill bg-danger-subtle text-danger"><i class="bi bi-camera-video-fill me-1"></i>Video</span><?php endif; ?>
+          <?php if (!empty($reto['pdf'])): ?><span class="badge rounded-pill bg-secondary-subtle text-secondary"><i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF</span><?php endif; ?>
+        </div>
+
+        <?php if (!empty($reto['pdf'])): ?>
+          <a href="<?= htmlspecialchars($reto['pdf']) ?>" class="btn btn-outline-secondary btn-icon mb-4" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Abrir documento</a>
+        <?php endif; ?>
       </div>
-    <?php endif; ?>
+      <?php if (!empty($reto['imagen'])): ?>
+        <div class="flex-shrink-0 w-100" style="max-width: 420px;">
+          <div class="ratio ratio-4x3 rounded overflow-hidden shadow-sm">
+            <img src="<?= htmlspecialchars($reto['imagen']) ?>" alt="Imagen del reto" class="w-100 h-100" style="object-fit: cover;">
+          </div>
+        </div>
+      <?php endif; ?>
+    </div>
 
     <?php if ($video_embed || !empty($reto['video_url'])): ?>
       <div class="mt-4">
-        <h5>Video</h5>
+        <h5 class="fw-semibold mb-3">Video</h5>
         <?php if ($video_embed): ?>
-          <div class="ratio ratio-16x9">
+          <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm">
             <iframe src="<?= htmlspecialchars($video_embed) ?>" title="Video del reto" allowfullscreen></iframe>
           </div>
         <?php else: ?>
-          <a href="<?= htmlspecialchars($reto['video_url']) ?>" target="_blank" rel="noopener">Ver video</a>
+          <a href="<?= htmlspecialchars($reto['video_url']) ?>" target="_blank" rel="noopener" class="btn btn-outline-primary btn-icon"><i class="bi bi-play-circle"></i> Ver video</a>
         <?php endif; ?>
       </div>
     <?php endif; ?>
 
     <?php if (!empty($reto['pdf'])): ?>
       <div class="mt-4">
-        <h5>Documento PDF</h5>
-        <a href="<?= htmlspecialchars($reto['pdf']) ?>" class="btn btn-outline-secondary mb-3" target="_blank" rel="noopener">Abrir PDF</a>
-        <div class="ratio ratio-16x9">
+        <h5 class="fw-semibold mb-3">Documento PDF</h5>
+        <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm">
           <iframe src="<?= htmlspecialchars($reto['pdf']) ?>" title="PDF del reto"></iframe>
         </div>
       </div>

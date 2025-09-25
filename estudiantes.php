@@ -4,14 +4,22 @@ require_once 'includes/protect.php';
 include 'includes/header.php';
 
 $actividad_id = isset($_GET['actividad_id']) ? (int)$_GET['actividad_id'] : 0;
-if ($actividad_id<=0) { echo "<div class='alert alert-danger'>Actividad no valida.</div>"; include 'includes/footer.php'; exit; }
+if ($actividad_id<=0) {
+  echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-exclamation-octagon'></i></div><h4 class='fw-semibold mb-2'>Actividad no válida</h4><p class='text-muted mb-0'>Vuelve a <a href='actividades.php'>Actividades</a> y selecciona una opción disponible.</p></div></div>";
+  include 'includes/footer.php';
+  exit;
+}
 
 // Actividad
 $stmt=$conn->prepare("SELECT id, nombre FROM actividades WHERE id=?");
 $stmt->bind_param("i",$actividad_id);
 $stmt->execute();
 $actividad=$stmt->get_result()->fetch_assoc();
-if(!$actividad){ echo "<div class='alert alert-danger'>Actividad no encontrada.</div>"; include 'includes/footer.php'; exit; }
+if(!$actividad){
+  echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-search'></i></div><h4 class='fw-semibold mb-2'>Actividad no encontrada</h4><p class='text-muted mb-0'>Puede que haya sido eliminada. Revisa el listado de actividades disponibles.</p></div></div>";
+  include 'includes/footer.php';
+  exit;
+}
 
 // Agregar/editar estudiante
 $estudianteEdit = null;
@@ -103,47 +111,82 @@ $stmt->bind_param("i",$actividad_id);
 $stmt->execute();
 $estudiantes=$stmt->get_result();
 ?>
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3>Estudiantes - <?= htmlspecialchars($actividad['nombre']) ?></h3>
-  <a href="actividades.php" class="btn btn-outline-secondary">Volver</a>
-</div>
+<section class="page-header card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+    <div>
+      <h1 class="page-title mb-1"><i class="bi bi-people-fill"></i> Estudiantes</h1>
+      <p class="page-subtitle mb-0">Actividad: <span class="fw-semibold text-dark"><?= htmlspecialchars($actividad['nombre']) ?></span>. Gestiona participantes y sus avatares.</p>
+    </div>
+    <div class="list-actions justify-content-lg-end">
+      <a href="actividades.php" class="btn btn-outline-primary btn-icon"><i class="bi bi-arrow-left"></i> Volver a actividades</a>
+      <a href="puntuar.php?actividad_id=<?= $actividad_id ?>" class="btn btn-success btn-icon"><i class="bi bi-graph-up-arrow"></i> Ver tablero</a>
+    </div>
+  </div>
+</section>
 
 <?php if ($estudianteEdit): ?>
-  <div class="alert alert-info">Editando estudiante <strong><?= htmlspecialchars($estudianteEdit['nombre']) ?></strong>. <a href="estudiantes.php?actividad_id=<?= $actividad_id ?>" class="alert-link">Cancelar</a></div>
+  <div class="alert alert-info shadow-sm">Editando estudiante <strong><?= htmlspecialchars($estudianteEdit['nombre']) ?></strong>. <a href="estudiantes.php?actividad_id=<?= $actividad_id ?>" class="alert-link">Cancelar</a></div>
 <?php endif; ?>
 
-<form method="post" enctype="multipart/form-data" class="row g-3 mb-4">
+<form method="post" enctype="multipart/form-data" class="card section-card mb-4">
   <input type="hidden" name="estudiante_id" value="<?= $estudianteEdit['id'] ?? '' ?>">
-  <div class="col-md-5">
-    <input type="text" name="nombre" class="form-control" placeholder="Nombre del estudiante" value="<?= htmlspecialchars($estudianteEdit['nombre'] ?? '') ?>" required>
-  </div>
-  <div class="col-md-5">
-    <?php if ($estudianteEdit && $estudianteEdit['avatar'] && $estudianteEdit['avatar']!=='default.png'): ?>
-      <div class="form-text">Sube una imagen para reemplazar el avatar actual.</div>
-    <?php endif; ?>
-    <input type="file" name="avatar" class="form-control" accept="image/*">
-  </div>
-  <div class="col-md-2 d-grid">
-    <button class="btn btn-primary"><?= $estudianteEdit ? 'Actualizar' : 'Agregar' ?></button>
+  <div class="card-body">
+    <div class="row g-4 align-items-center">
+      <div class="col-md-5">
+        <label for="nombre" class="form-label fw-semibold">Nombre del estudiante</label>
+        <div class="input-group input-group-lg">
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
+          <input type="text" id="nombre" name="nombre" class="form-control" placeholder="Ej. Sofía González" value="<?= htmlspecialchars($estudianteEdit['nombre'] ?? '') ?>" required>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <label for="avatar" class="form-label fw-semibold">Avatar (opcional)</label>
+        <?php if ($estudianteEdit && $estudianteEdit['avatar'] && $estudianteEdit['avatar']!=='default.png'): ?>
+          <div class="form-text mb-2">Sube una imagen para reemplazar el avatar actual.</div>
+        <?php endif; ?>
+        <input type="file" id="avatar" name="avatar" class="form-control" accept="image/*">
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary btn-icon btn-lg">
+          <i class="bi <?= $estudianteEdit ? 'bi-arrow-repeat' : 'bi-person-plus' ?>"></i>
+          <?= $estudianteEdit ? 'Actualizar' : 'Agregar' ?>
+        </button>
+      </div>
+    </div>
   </div>
 </form>
 
-<table class="table table-striped align-middle">
-  <thead><tr><th>Avatar</th><th>Nombre</th><th>Puntos</th><th>Acciones</th></tr></thead>
-  <tbody>
-    <?php while($e=$estudiantes->fetch_assoc()): ?>
-      <tr>
-        <td><img src="assets/img/avatars/<?= htmlspecialchars($e['avatar']) ?>" width="48" height="48" class="rounded-circle" alt="avatar"></td>
-        <td><?= htmlspecialchars($e['nombre']) ?></td>
-        <td><span class="badge bg-success fs-6"><?= $e['total'] ?></span></td>
-        <td>
-          <a class="btn btn-sm btn-success" href="puntuar_estudiante.php?id=<?= $e['id'] ?>">Puntuar</a>
-          <a class="btn btn-sm btn-secondary" href="estudiantes.php?actividad_id=<?= $actividad_id ?>&editar=<?= $e['id'] ?>">Editar</a>
-          <a class="btn btn-sm btn-danger" href="estudiantes.php?actividad_id=<?= $actividad_id ?>&eliminar=<?= $e['id'] ?>" onclick="return confirm('¿Eliminar estudiante?');">Eliminar</a>
-        </td>
-      </tr>
-    <?php endwhile; ?>
-  </tbody>
-</table>
+<div class="card table-card mb-4">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th class="text-uppercase">Avatar</th>
+          <th class="text-uppercase">Nombre</th>
+          <th class="text-uppercase">Puntos</th>
+          <th class="text-end text-uppercase">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php while($e=$estudiantes->fetch_assoc()): ?>
+          <tr>
+            <td>
+              <img src="assets/img/avatars/<?= htmlspecialchars($e['avatar']) ?>" class="avatar-xl" alt="avatar de <?= htmlspecialchars($e['nombre']) ?>">
+            </td>
+            <td class="fw-semibold text-dark"><?= htmlspecialchars($e['nombre']) ?></td>
+            <td><span class="badge bg-success fs-6"><i class="bi bi-stars me-1"></i><?= $e['total'] ?></span></td>
+            <td class="text-end">
+              <div class="btn-group" role="group">
+                <a class="btn btn-sm btn-success btn-icon" href="puntuar_estudiante.php?id=<?= $e['id'] ?>"><i class="bi bi-plus-circle"></i> Puntuar</a>
+                <a class="btn btn-sm btn-outline-secondary btn-icon" href="estudiantes.php?actividad_id=<?= $actividad_id ?>&editar=<?= $e['id'] ?>"><i class="bi bi-pencil"></i> Editar</a>
+                <a class="btn btn-sm btn-outline-danger btn-icon" href="estudiantes.php?actividad_id=<?= $actividad_id ?>&eliminar=<?= $e['id'] ?>" onclick="return confirm('¿Eliminar estudiante?');"><i class="bi bi-trash"></i> Quitar</a>
+              </div>
+            </td>
+          </tr>
+        <?php endwhile; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
 
 <?php include 'includes/footer.php'; ?>
