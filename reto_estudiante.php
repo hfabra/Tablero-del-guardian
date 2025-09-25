@@ -1,12 +1,9 @@
 <?php
 require_once 'includes/db.php';
 require_once 'includes/protect_estudiante.php';
-include 'includes/header_estudiante.php';
 
 function obtenerEmbedYoutube(?string $url): ?string {
-    if (!$url) {
-        return null;
-    }
+    if (!$url) return null;
     $patron = '/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/';
     if (preg_match($patron, $url, $coincidencias)) {
         return 'https://www.youtube.com/embed/'.$coincidencias[1];
@@ -15,9 +12,7 @@ function obtenerEmbedYoutube(?string $url): ?string {
 }
 
 function limpiarContenidoBlog(?string $html): string {
-    if ($html === null) {
-        return '';
-    }
+    if ($html === null) return '';
     $permitidos = '<p><a><strong><em><u><ol><ul><li><h1><h2><h3><h4><h5><h6><blockquote><img><figure><figcaption><table><thead><tbody><tr><th><td><span><br><hr><pre><code><div>';
     $sanitizado = strip_tags($html, $permitidos);
     $sanitizado = preg_replace('/on\w+\s*=\s*("|\').*?\1/i', '', $sanitizado);
@@ -30,17 +25,27 @@ $estudiante_id = (int)($_SESSION['estudiante_id'] ?? 0);
 $reto_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($reto_id <= 0) {
+    include 'includes/header_estudiante.php';
     echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-flag'></i></div><h4 class='fw-semibold mb-2'>Reto no válido</h4><p class='text-muted mb-0'>Regresa a tu <a href='perfil_estudiante.php'>panel</a> para seleccionar un reto disponible.</p></div></div>";
     include 'includes/footer.php';
     exit;
 }
 
-$stmt = $conn->prepare('SELECT r.id, r.nombre, r.descripcion, r.contenido_blog, r.imagen, r.video_url, r.pdf, a.id AS actividad_id, a.nombre AS actividad_nombre, e.nombre AS estudiante_nombre FROM retos r INNER JOIN actividades a ON r.actividad_id = a.id INNER JOIN estudiantes e ON e.actividad_id = a.id WHERE r.id = ? AND e.id = ?');
+$stmt = $conn->prepare('
+    SELECT r.id, r.nombre, r.descripcion, r.contenido_blog, r.imagen, r.video_url, r.pdf,
+           a.id AS actividad_id, a.nombre AS actividad_nombre,
+           e.nombre AS estudiante_nombre
+    FROM retos r
+    INNER JOIN actividades a ON r.actividad_id = a.id
+    INNER JOIN estudiantes e ON e.actividad_id = a.id
+    WHERE r.id = ? AND e.id = ?
+');
 $stmt->bind_param('ii', $reto_id, $estudiante_id);
 $stmt->execute();
 $reto = $stmt->get_result()->fetch_assoc();
 
 if (!$reto) {
+    include 'includes/header_estudiante.php';
     echo "<div class='card section-card border-0 bg-white text-center p-4'><div class='card-body'><div class='auth-icon mx-auto mb-3'><i class='bi bi-search'></i></div><h4 class='fw-semibold mb-2'>Reto no encontrado</h4><p class='text-muted mb-0'>Es posible que no pertenezca a tu actividad. Consulta con tu docente.</p></div></div>";
     include 'includes/footer.php';
     exit;
@@ -79,9 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errores) {
-
-        $stmtInsert = $conn->prepare('INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor) VALUES (?, ?, ?, ?, ?)');
-
+        $stmtInsert = $conn->prepare('
+            INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor)
+            VALUES (?, ?, ?, ?, ?)
+        ');
         if (!$stmtInsert) {
             error_log('Error al preparar retroalimentación de estudiante: '.$conn->error);
             $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
@@ -99,23 +105,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log('Error al guardar retroalimentación de estudiante: '.$stmtInsert->error);
                 $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
             }
-
             $stmtInsert->close();
         }
-        $stmtInsert = $conn->prepare('INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor) VALUES (?, ?, ?, ?, \"estudiante\")');
-        $stmtInsert->bind_param('iiss', $estudiante_id, $reto_id, $mensaje, $archivoNombre);
-        $stmtInsert->execute();
-        $_SESSION['retro_exito'] = '¡Tu retroalimentación fue enviada!';
-        header('Location: reto_estudiante.php?id='.$reto_id);
-        exit;
- main
     }
 }
+
+// A partir de aquí ya se puede imprimir HTML
+include 'includes/header_estudiante.php';
 
 $video_embed = obtenerEmbedYoutube($reto['video_url'] ?? null);
 $contenido_blog = limpiarContenidoBlog($reto['contenido_blog'] ?? null);
 
-$retroStmt = $conn->prepare('SELECT id, mensaje, archivo, autor, creado_en FROM retroalimentaciones WHERE reto_id = ? AND estudiante_id = ? ORDER BY creado_en DESC');
+$retroStmt = $conn->prepare('
+    SELECT id, mensaje, archivo, autor, creado_en
+    FROM retroalimentaciones
+    WHERE reto_id = ? AND estudiante_id = ?
+    ORDER BY creado_en DESC
+');
 $retroStmt->bind_param('ii', $reto_id, $estudiante_id);
 $retroStmt->execute();
 $retroalimentaciones = $retroStmt->get_result();
