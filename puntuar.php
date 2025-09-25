@@ -46,19 +46,27 @@ $estudiantes=$stmt->get_result();
     <?php if($retos->num_rows===0): ?>
       <div class="text-muted">No hay retos creados aún. Crea algunos en <a href="retos.php?actividad_id=<?= $actividad_id ?>">Retos</a>.</div>
     <?php else: ?>
-      <ul class="list-group">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
         <?php while($r=$retos->fetch_assoc()): ?>
-          <li class="list-group-item d-flex justify-content-between align-items-start">
-            <div class="me-3">
-              <strong><a href="reto_detalle.php?id=<?= $r['id'] ?>" class="text-decoration-none"><?= htmlspecialchars($r['nombre']) ?></a></strong>
-              <?php if(!empty($r['descripcion'])): ?>
-                <div class="small text-muted"><?= htmlspecialchars($r['descripcion']) ?></div>
-              <?php endif; ?>
+          <div class="col">
+            <div class="card h-100 shadow-sm">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title mb-2">
+                  <a href="reto_detalle.php?id=<?= $r['id'] ?>" class="text-decoration-none"><?= htmlspecialchars($r['nombre']) ?></a>
+                </h5>
+                <?php if(!empty($r['descripcion'])): ?>
+                  <p class="card-text text-muted flex-grow-1 mb-3"><?= htmlspecialchars($r['descripcion']) ?></p>
+                <?php else: ?>
+                  <div class="flex-grow-1"></div>
+                <?php endif; ?>
+                <div class="mt-auto pt-2">
+                  <a class="btn btn-outline-primary btn-sm" href="reto_detalle.php?id=<?= $r['id'] ?>">Ver detalle</a>
+                </div>
+              </div>
             </div>
-            <a class="btn btn-outline-primary btn-sm" href="reto_detalle.php?id=<?= $r['id'] ?>">Ver detalle</a>
-          </li>
+          </div>
         <?php endwhile; ?>
-      </ul>
+      </div>
     <?php endif; ?>
   </div>
 </div>
