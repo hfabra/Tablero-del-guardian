@@ -86,15 +86,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
         } else {
             $autorRetro = 'estudiante';
-            $stmtInsert->bind_param('iisss', $estudiante_id, $reto_id, $mensaje, $archivoNombre, $autorRetro);
-            if ($stmtInsert->execute()) {
+            if (!$stmtInsert->bind_param('iisss', $estudiante_id, $reto_id, $mensaje, $archivoNombre, $autorRetro)) {
+                error_log('Error al vincular parámetros de retroalimentación de estudiante: '.$stmtInsert->error);
+                $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
+            } elseif ($stmtInsert->execute()) {
                 $_SESSION['retro_exito'] = '¡Tu retroalimentación fue enviada!';
+                $stmtInsert->close();
                 header('Location: reto_estudiante.php?id='.$reto_id);
                 exit;
+            } else {
+                error_log('Error al guardar retroalimentación de estudiante: '.$stmtInsert->error);
+                $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
             }
 
-            error_log('Error al guardar retroalimentación de estudiante: '.$stmtInsert->error);
-            $errores[] = 'No se pudo registrar tu retroalimentación. Intenta nuevamente en unos minutos.';
+            $stmtInsert->close();
         }
     }
 }
