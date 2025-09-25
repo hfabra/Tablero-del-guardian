@@ -277,8 +277,7 @@ $retos = $res->get_result();
     </table>
   </div>
 </div>
-
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.tiny.cloud/1/1w1n2wobijwqds7rzeg4st8gsbmxv23nb0y1qbuoyhbcn3kt/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
   tinymce.init({
     selector: '#contenido_blog',
