@@ -29,9 +29,10 @@ $retos=$stmt->get_result();
 
 // Estudiantes con totales
 $q = "SELECT e.id, e.nombre, e.avatar, COALESCE(SUM(p.puntaje),0) AS total "
-   . "FROM estudiantes e "
-   . "LEFT JOIN puntuaciones p ON p.estudiante_id=e.id "
-   . "WHERE e.actividad_id=? "
+   . "FROM actividad_estudiante ae "
+   . "INNER JOIN estudiantes e ON e.id = ae.estudiante_id "
+   . "LEFT JOIN puntuaciones p ON p.estudiante_id = e.id AND p.actividad_id = ae.actividad_id "
+   . "WHERE ae.actividad_id=? "
    . "GROUP BY e.id, e.nombre, e.avatar "
    . "ORDER BY total DESC, e.nombre ASC";
 $stmt=$conn->prepare($q);
@@ -106,7 +107,7 @@ $estudiantes=$stmt->get_result();
             <p class="text-muted mb-2">Puntos acumulados</p>
             <span class="badge bg-primary fs-6"><i class="bi bi-stars me-1"></i><?= $e['total'] ?></span>
           </div>
-          <a href="puntuar_estudiante.php?id=<?= $e['id'] ?>" class="btn btn-success btn-icon"><i class="bi bi-plus-circle"></i> Puntuar</a>
+          <a href="puntuar_estudiante.php?id=<?= $e['id'] ?>&actividad_id=<?= $actividad_id ?>" class="btn btn-success btn-icon"><i class="bi bi-plus-circle"></i> Puntuar</a>
         </div>
       </div>
     </div>

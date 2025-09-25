@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($usuario === '' || $clave === '') {
         $errores[] = 'Ingresa tu usuario y clave de acceso.';
     } else {
-        $stmt = $conn->prepare('SELECT id, nombre, actividad_id, clave_acceso, password_hash FROM estudiantes WHERE usuario = ? LIMIT 1');
+        $stmt = $conn->prepare('SELECT id, nombre, clave_acceso, password_hash FROM estudiantes WHERE usuario = ? LIMIT 1');
         $stmt->bind_param('s', $usuario);
         $stmt->execute();
         $resultado = $stmt->get_result();
@@ -42,7 +42,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($credencialValida) {
                 $_SESSION['estudiante_id'] = $estudiante['id'];
                 $_SESSION['estudiante_nombre'] = $estudiante['nombre'];
-                $_SESSION['estudiante_actividad_id'] = $estudiante['actividad_id'];
                 header('Location: perfil_estudiante.php');
                 exit;
             }

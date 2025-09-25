@@ -47,6 +47,86 @@ if (!$reto) {
 $video_embed = obtenerEmbedYoutube($reto['video_url'] ?? null);
 $contenido_blog = limpiarContenidoBlog($reto['contenido_blog'] ?? null);
 
+$estudiantesActividad = [];
+$stmtEstudiantes = $conn->prepare('SELECT e.id, e.nombre FROM actividad_estudiante ae INNER JOIN estudiantes e ON e.id = ae.estudiante_id WHERE ae.actividad_id = ? ORDER BY e.nombre ASC');
+$stmtEstudiantes->bind_param('i', $reto['actividad_id']);
+$stmtEstudiantes->execute();
+$resEstudiantes = $stmtEstudiantes->get_result();
+while ($filaEst = $resEstudiantes->fetch_assoc()) {
+    $estudiantesActividad[] = $filaEst;
+}
+$stmtEstudiantes->close();
+
+$erroresDocente = [];
+$exitoDocente = $_SESSION['retro_docente_exito'] ?? null;
+unset($_SESSION['retro_docente_exito']);
+$mensajeDocentePrevio = '';
+$estudianteSeleccionadoForm = 0;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $accion = $_POST['accion'] ?? '';
+    $mensajeDocentePrevio = trim($_POST['mensaje_docente'] ?? '');
+    $estudianteSeleccionadoForm = isset($_POST['estudiante_id']) ? (int)$_POST['estudiante_id'] : 0;
+
+    if ($accion === 'responder_docente') {
+        $idsPermitidos = array_map(static fn($est) => (int)$est['id'], $estudiantesActividad);
+        if (!$estudianteSeleccionadoForm || !in_array($estudianteSeleccionadoForm, $idsPermitidos, true)) {
+            $erroresDocente[] = 'Selecciona un estudiante válido para responder.';
+        }
+
+        $archivoNombre = null;
+        $rutaDestino = null;
+        if (!empty($_FILES['adjunto_docente']['name'])) {
+            $permitidos = ['jpg','jpeg','png','gif','pdf','doc','docx','ppt','pptx','zip'];
+            $ext = strtolower(pathinfo($_FILES['adjunto_docente']['name'], PATHINFO_EXTENSION));
+
+            if (!in_array($ext, $permitidos)) {
+                $erroresDocente[] = 'El archivo adjunto no es compatible. Usa imágenes, PDF o documentos.';
+            } else {
+                $directorio = 'assets/retroalimentaciones';
+                if (!is_dir($directorio)) {
+                    mkdir($directorio, 0775, true);
+                }
+                $archivoNombre = 'retro_docente_'.$estudianteSeleccionadoForm.'_'.time().'_'.bin2hex(random_bytes(3)).'.'.$ext;
+                $rutaDestino = $directorio.'/'.$archivoNombre;
+                if (!move_uploaded_file($_FILES['adjunto_docente']['tmp_name'], $rutaDestino)) {
+                    $erroresDocente[] = 'No se pudo guardar el archivo adjunto.';
+                    $archivoNombre = null;
+                    $rutaDestino = null;
+                }
+            }
+        }
+
+        if ($mensajeDocentePrevio === '' && !$archivoNombre) {
+            $erroresDocente[] = 'Escribe un mensaje o adjunta un archivo para enviar tu respuesta.';
+        }
+
+        if (!$erroresDocente) {
+            $stmtInsert = $conn->prepare('INSERT INTO retroalimentaciones (estudiante_id, reto_id, mensaje, archivo, autor) VALUES (?, ?, ?, ?, ?)');
+            if ($stmtInsert) {
+                $autorDoc = 'docente';
+                $stmtInsert->bind_param('iisss', $estudianteSeleccionadoForm, $reto_id, $mensajeDocentePrevio, $archivoNombre, $autorDoc);
+                if ($stmtInsert->execute()) {
+                    $_SESSION['retro_docente_exito'] = 'Respuesta enviada correctamente.';
+                    $stmtInsert->close();
+                    header('Location: reto_detalle.php?id='.$reto_id);
+                    exit;
+                }
+                $stmtInsert->close();
+                $erroresDocente[] = 'No se pudo registrar la respuesta. Intenta nuevamente.';
+            } else {
+                $erroresDocente[] = 'No se pudo preparar el guardado de la respuesta.';
+            }
+
+            if ($erroresDocente && $archivoNombre && $rutaDestino && file_exists($rutaDestino)) {
+                @unlink($rutaDestino);
+            }
+        } elseif ($archivoNombre && $rutaDestino && file_exists($rutaDestino)) {
+            @unlink($rutaDestino);
+        }
+    }
+}
+
 $retroStmt = $conn->prepare('SELECT r.id, r.mensaje, r.archivo, r.autor, r.creado_en, e.nombre AS estudiante_nombre FROM retroalimentaciones r INNER JOIN estudiantes e ON e.id = r.estudiante_id WHERE r.reto_id = ? ORDER BY r.creado_en DESC');
 $retroStmt->bind_param('i', $reto_id);
 $retroStmt->execute();
@@ -120,6 +200,61 @@ $retroalimentaciones = $retroStmt->get_result();
   </div>
 </div>
 
+<?php if ($exitoDocente): ?>
+  <div class="alert alert-success shadow-sm mt-4">
+    <i class="bi bi-check-circle-fill me-2"></i><?= htmlspecialchars($exitoDocente) ?>
+  </div>
+<?php endif; ?>
+
+<div class="card section-card mt-4">
+  <div class="card-body">
+    <h2 class="h4 fw-semibold mb-3"><i class="bi bi-reply-fill"></i> Responder a estudiantes</h2>
+    <?php if ($erroresDocente): ?>
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          <?php foreach ($erroresDocente as $error): ?>
+            <li><?= htmlspecialchars($error) ?></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
+    <form method="post" enctype="multipart/form-data" class="row g-3">
+      <input type="hidden" name="accion" value="responder_docente">
+      <div class="col-lg-4">
+        <label for="estudiante_id" class="form-label">Estudiante</label>
+        <select id="estudiante_id" name="estudiante_id" class="form-select" <?= $estudiantesActividad ? '' : 'disabled' ?>>
+          <option value="" disabled <?= $estudianteSeleccionadoForm === 0 ? 'selected' : '' ?>>Selecciona un estudiante</option>
+          <?php foreach ($estudiantesActividad as $estAct): ?>
+            <option value="<?= $estAct['id'] ?>" <?= $estudianteSeleccionadoForm === (int)$estAct['id'] ? 'selected' : '' ?>><?= htmlspecialchars($estAct['nombre']) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <div class="form-text">
+          <?php if ($estudiantesActividad): ?>
+            Elige a quién deseas enviar una respuesta personalizada.
+          <?php else: ?>
+            No hay estudiantes inscritos en esta actividad todavía.
+          <?php endif; ?>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <label for="mensaje_docente" class="form-label">Mensaje</label>
+        <textarea id="mensaje_docente" name="mensaje_docente" class="form-control" rows="4" placeholder="Comparte orientaciones, comentarios o recordatorios" <?= $estudiantesActividad ? '' : 'disabled' ?>><?= htmlspecialchars($mensajeDocentePrevio) ?></textarea>
+        <div class="form-text">El mensaje se enviará al estudiante seleccionado y quedará registrado en la línea de tiempo.</div>
+      </div>
+      <div class="col-lg-6">
+        <label for="adjunto_docente" class="form-label">Archivo adjunto (opcional)</label>
+        <input type="file" id="adjunto_docente" name="adjunto_docente" class="form-control" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.zip" <?= $estudiantesActividad ? '' : 'disabled' ?>>
+        <div class="form-text">Puedes compartir material de apoyo, retroalimentaciones grabadas o guías.</div>
+      </div>
+      <div class="col-lg-6 d-grid align-self-end">
+        <button class="btn btn-primary btn-icon" <?= $estudiantesActividad ? '' : 'disabled' ?>>
+          <i class="bi bi-send-check"></i> Enviar respuesta
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <?php if ($retroalimentaciones->num_rows > 0): ?>
   <div class="card section-card mt-4">
     <div class="card-body">
@@ -133,7 +268,13 @@ $retroalimentaciones = $retroStmt->get_result();
             <div class="timeline-dot <?= $retro['autor'] === 'docente' ? 'bg-primary' : '' ?>"></div>
             <div class="timeline-content">
               <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="fw-semibold text-dark"><i class="bi <?= $retro['autor'] === 'docente' ? 'bi-mortarboard-fill' : 'bi-person-badge-fill' ?> me-1"></i><?= htmlspecialchars($retro['autor'] === 'docente' ? 'Docente' : $retro['estudiante_nombre']) ?></span>
+                <span class="fw-semibold text-dark">
+                  <?php if ($retro['autor'] === 'docente'): ?>
+                    <i class="bi bi-mortarboard-fill me-1"></i>Docente <span class="badge text-bg-light ms-2"><i class="bi bi-person"></i> <?= htmlspecialchars($retro['estudiante_nombre']) ?></span>
+                  <?php else: ?>
+                    <i class="bi bi-person-badge-fill me-1"></i><?= htmlspecialchars($retro['estudiante_nombre']) ?>
+                  <?php endif; ?>
+                </span>
                 <span class="text-muted small"><i class="bi bi-clock-history me-1"></i><?= $retro['creado_en'] ?></span>
               </div>
               <?php if (!empty($retro['mensaje'])): ?>

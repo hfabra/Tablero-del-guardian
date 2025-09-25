@@ -37,7 +37,8 @@ $stmt = $conn->prepare('
            e.nombre AS estudiante_nombre
     FROM retos r
     INNER JOIN actividades a ON r.actividad_id = a.id
-    INNER JOIN estudiantes e ON e.actividad_id = a.id
+    INNER JOIN actividad_estudiante ae ON ae.actividad_id = a.id
+    INNER JOIN estudiantes e ON e.id = ae.estudiante_id
     WHERE r.id = ? AND e.id = ?
 ');
 $stmt->bind_param('ii', $reto_id, $estudiante_id);

@@ -6,6 +6,8 @@ include 'includes/header.php';
 $mensajeCredenciales = $_SESSION['credenciales_generadas'] ?? null;
 unset($_SESSION['credenciales_generadas']);
 
+$errorEstudiantes = null;
+
 function normalizarUsuario(string $texto): string {
     $usuario = strtolower(trim($texto));
     $usuario = preg_replace('/[^a-z0-9]/', '', $usuario);
@@ -67,7 +69,7 @@ if (!$actividad) {
 $estudianteEdit = null;
 if (isset($_GET['editar'])) {
     $editarId = (int)$_GET['editar'];
-    $stmt = $conn->prepare('SELECT id, nombre, avatar, usuario, clave_acceso FROM estudiantes WHERE id = ? AND actividad_id = ?');
+    $stmt = $conn->prepare('SELECT e.id, e.nombre, e.avatar, e.usuario, e.clave_acceso FROM estudiantes e INNER JOIN actividad_estudiante ae ON ae.estudiante_id = e.id WHERE e.id = ? AND ae.actividad_id = ?');
     $stmt->bind_param('ii', $editarId, $actividad_id);
     $stmt->execute();
     $estudianteEdit = $stmt->get_result()->fetch_assoc();
@@ -91,24 +93,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nombre']) && empty($_
     }
 
     if ($nombre !== '') {
-        $usuarioFinal = generarUsuarioUnico($conn, $usuarioIngresado !== '' ? $usuarioIngresado : $nombre);
-        $claveFinal = $claveIngresada !== '' ? $claveIngresada : generarClaveAcceso();
-        $hash = password_hash($claveFinal, PASSWORD_DEFAULT);
+        $conn->begin_transaction();
+        try {
+            $usuarioFinal = generarUsuarioUnico($conn, $usuarioIngresado !== '' ? $usuarioIngresado : $nombre);
+            $claveFinal = $claveIngresada !== '' ? $claveIngresada : generarClaveAcceso();
+            $hash = password_hash($claveFinal, PASSWORD_DEFAULT);
 
-        $stmt = $conn->prepare('INSERT INTO estudiantes (nombre, avatar, actividad_id, usuario, clave_acceso, password_hash) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->bind_param('ssisss', $nombre, $avatar, $actividad_id, $usuarioFinal, $claveFinal, $hash);
-        $stmt->execute();
+            $stmt = $conn->prepare('INSERT INTO estudiantes (nombre, avatar, usuario, clave_acceso, password_hash) VALUES (?, ?, ?, ?, ?)');
+            $stmt->bind_param('sssss', $nombre, $avatar, $usuarioFinal, $claveFinal, $hash);
+            if (!$stmt->execute()) {
+                throw new RuntimeException('No se pudo registrar el estudiante.');
+            }
+            $nuevoId = $conn->insert_id;
+            $stmt->close();
 
-        $_SESSION['credenciales_generadas'] = [
-            'tipo' => 'creado',
-            'nombre' => $nombre,
-            'usuario' => $usuarioFinal,
-            'clave' => $claveFinal
-        ];
+            $stmtRelacion = $conn->prepare('INSERT INTO actividad_estudiante (actividad_id, estudiante_id) VALUES (?, ?)');
+            $stmtRelacion->bind_param('ii', $actividad_id, $nuevoId);
+            if (!$stmtRelacion->execute()) {
+                throw new RuntimeException('No se pudo vincular el estudiante con la actividad.');
+            }
+            $stmtRelacion->close();
+
+            $conn->commit();
+
+            $_SESSION['credenciales_generadas'] = [
+                'tipo' => 'creado',
+                'nombre' => $nombre,
+                'usuario' => $usuarioFinal,
+                'clave' => $claveFinal
+            ];
+
+            header('Location: estudiantes.php?actividad_id='.$actividad_id);
+            exit;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            $errorEstudiantes = 'No se pudo registrar el estudiante. Intenta nuevamente.';
+        }
+    } else {
+        $errorEstudiantes = 'Ingresa el nombre del estudiante.';
     }
-
-    header('Location: estudiantes.php?actividad_id='.$actividad_id);
-    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['estudiante_id'])) {
@@ -116,9 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['estudiante_id'])) {
     $nombre = trim($_POST['nombre']);
     $usuarioIngresado = trim($_POST['usuario'] ?? '');
     $claveIngresada = trim($_POST['clave_acceso'] ?? '');
+    $actualizado = false;
 
     if ($nombre !== '') {
-        $stmt = $conn->prepare('SELECT avatar, usuario, clave_acceso, password_hash FROM estudiantes WHERE id = ? AND actividad_id = ?');
+        $stmt = $conn->prepare('SELECT e.avatar, e.usuario, e.clave_acceso, e.password_hash FROM estudiantes e INNER JOIN actividad_estudiante ae ON ae.estudiante_id = e.id WHERE e.id = ? AND ae.actividad_id = ?');
         $stmt->bind_param('ii', $estudianteId, $actividad_id);
         $stmt->execute();
         if ($actual = $stmt->get_result()->fetch_assoc()) {
@@ -144,8 +168,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['estudiante_id'])) {
             $claveFinal = $claveIngresada !== '' ? $claveIngresada : $actual['clave_acceso'];
             $hash = ($claveIngresada !== '') ? password_hash($claveFinal, PASSWORD_DEFAULT) : ($actual['password_hash'] ?: password_hash($claveFinal, PASSWORD_DEFAULT));
 
-            $stmt = $conn->prepare('UPDATE estudiantes SET nombre = ?, avatar = ?, usuario = ?, clave_acceso = ?, password_hash = ? WHERE id = ? AND actividad_id = ?');
-            $stmt->bind_param('ssssssi', $nombre, $avatar, $usuarioFinal, $claveFinal, $hash, $estudianteId, $actividad_id);
+            $stmt = $conn->prepare('UPDATE estudiantes SET nombre = ?, avatar = ?, usuario = ?, clave_acceso = ?, password_hash = ? WHERE id = ?');
+            $stmt->bind_param('sssssi', $nombre, $avatar, $usuarioFinal, $claveFinal, $hash, $estudianteId);
             $stmt->execute();
 
             $_SESSION['credenciales_generadas'] = [
@@ -154,33 +178,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['estudiante_id'])) {
                 'usuario' => $usuarioFinal,
                 'clave' => $claveFinal
             ];
+            $actualizado = true;
+        } else {
+            $errorEstudiantes = 'El estudiante ya no está asociado a esta actividad.';
         }
+        $stmt->close();
+    } else {
+        $errorEstudiantes = 'Ingresa el nombre del estudiante.';
     }
 
-    header('Location: estudiantes.php?actividad_id='.$actividad_id);
-    exit;
+    if ($actualizado) {
+        header('Location: estudiantes.php?actividad_id='.$actividad_id);
+        exit;
+    }
 }
 
 if (isset($_GET['eliminar'])) {
     $id = (int)$_GET['eliminar'];
-    $resAv = $conn->query('SELECT avatar FROM estudiantes WHERE id='.$id.' AND actividad_id='.$actividad_id);
-    if ($resAv && $row = $resAv->fetch_assoc()) {
-        if ($row['avatar'] && $row['avatar'] !== 'default.png') {
-            $path = 'assets/img/avatars/'.$row['avatar'];
-            if (file_exists($path)) { @unlink($path); }
+    $eliminarAvatar = false;
+    $avatarActual = null;
+
+    $conn->begin_transaction();
+    try {
+        $stmtInfo = $conn->prepare('SELECT e.avatar FROM estudiantes e INNER JOIN actividad_estudiante ae ON ae.estudiante_id = e.id WHERE e.id = ? AND ae.actividad_id = ?');
+        $stmtInfo->bind_param('ii', $id, $actividad_id);
+        $stmtInfo->execute();
+        if ($info = $stmtInfo->get_result()->fetch_assoc()) {
+            $avatarActual = $info['avatar'];
+            $stmtInfo->close();
+
+            $stmtRelacion = $conn->prepare('DELETE FROM actividad_estudiante WHERE actividad_id = ? AND estudiante_id = ?');
+            $stmtRelacion->bind_param('ii', $actividad_id, $id);
+            $stmtRelacion->execute();
+            $stmtRelacion->close();
+
+            $stmtPuntajes = $conn->prepare('DELETE FROM puntuaciones WHERE actividad_id = ? AND estudiante_id = ?');
+            $stmtPuntajes->bind_param('ii', $actividad_id, $id);
+            $stmtPuntajes->execute();
+            $stmtPuntajes->close();
+
+            $stmtRetro = $conn->prepare('DELETE r FROM retroalimentaciones r INNER JOIN retos rt ON rt.id = r.reto_id WHERE r.estudiante_id = ? AND rt.actividad_id = ?');
+            $stmtRetro->bind_param('ii', $id, $actividad_id);
+            $stmtRetro->execute();
+            $stmtRetro->close();
+
+            $stmtCuenta = $conn->prepare('SELECT COUNT(*) AS total FROM actividad_estudiante WHERE estudiante_id = ?');
+            $stmtCuenta->bind_param('i', $id);
+            $stmtCuenta->execute();
+            $total = (int)($stmtCuenta->get_result()->fetch_assoc()['total'] ?? 0);
+            $stmtCuenta->close();
+
+            if ($total === 0) {
+                $stmtEliminar = $conn->prepare('DELETE FROM estudiantes WHERE id = ?');
+                $stmtEliminar->bind_param('i', $id);
+                $stmtEliminar->execute();
+                $stmtEliminar->close();
+                $eliminarAvatar = true;
+            }
+
+            $conn->commit();
+
+            if ($eliminarAvatar && $avatarActual && $avatarActual !== 'default.png') {
+                $path = 'assets/img/avatars/'.$avatarActual;
+                if (file_exists($path)) {
+                    @unlink($path);
+                }
+            }
+        } else {
+            $stmtInfo->close();
+            $conn->rollback();
         }
+    } catch (Throwable $e) {
+        $conn->rollback();
     }
-    $conn->query('DELETE FROM estudiantes WHERE id='.$id.' AND actividad_id='.$actividad_id);
+
     header('Location: estudiantes.php?actividad_id='.$actividad_id);
     exit;
 }
 
 $q = "SELECT e.id, e.nombre, e.avatar, e.usuario, e.clave_acceso, COALESCE(SUM(p.puntaje),0) AS total "
-   . "FROM estudiantes e "
-   . "LEFT JOIN puntuaciones p ON p.estudiante_id = e.id "
-   . "WHERE e.actividad_id = ? "
+   . "FROM actividad_estudiante ae "
+   . "INNER JOIN estudiantes e ON e.id = ae.estudiante_id "
+   . "LEFT JOIN puntuaciones p ON p.estudiante_id = e.id AND p.actividad_id = ae.actividad_id "
+   . "WHERE ae.actividad_id = ? "
    . "GROUP BY e.id, e.nombre, e.avatar, e.usuario, e.clave_acceso "
-   . "ORDER BY e.id DESC";
+   . "ORDER BY e.nombre ASC";
 $stmt = $conn->prepare($q);
 $stmt->bind_param('i', $actividad_id);
 $stmt->execute();
@@ -218,6 +300,12 @@ $clavePorDefecto = $estudianteEdit['clave_acceso'] ?? ($_POST['clave_acceso'] ??
         <span class="credential-chip"><strong>Clave:</strong> <?= htmlspecialchars($mensajeCredenciales['clave']) ?></span>
       </div>
     </div>
+  </div>
+<?php endif; ?>
+
+<?php if ($errorEstudiantes): ?>
+  <div class="alert alert-danger shadow-sm">
+    <i class="bi bi-exclamation-octagon-fill me-2"></i><?= htmlspecialchars($errorEstudiantes) ?>
   </div>
 <?php endif; ?>
 
