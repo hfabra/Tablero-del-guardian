@@ -47,23 +47,27 @@ $stmt->execute();
 $actividad = $stmt->get_result()->fetch_assoc();
 if (!$actividad) { echo "<div class='alert alert-danger'>Actividad no encontrada.</div>"; include 'includes/footer.php'; exit; }
 
+$estadoMensaje = $_SESSION['estado_reto'] ?? null;
+$estadoTipo = $_SESSION['estado_reto_tipo'] ?? 'info';
+unset($_SESSION['estado_reto'], $_SESSION['estado_reto_tipo']);
+
 // Editar reto
 $retoEdit = null;
 if (isset($_GET['editar'])) {
   $editarId = (int)$_GET['editar'];
-$stmt = $conn->prepare("SELECT id, nombre, descripcion, imagen, video_url, pdf, icono FROM retos WHERE id=? AND actividad_id=?");
+  $stmt = $conn->prepare("SELECT id, nombre, descripcion, imagen, video_url, pdf, icono FROM retos WHERE id=? AND actividad_id=?");
   $stmt->bind_param("ii", $editarId, $actividad_id);
   $stmt->execute();
   $retoEdit = $stmt->get_result()->fetch_assoc();
 }
 
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['nombre']) && empty($_POST['reto_id'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nombre'])) {
+  $retoId = isset($_POST['reto_id']) ? (int)$_POST['reto_id'] : 0;
   $nombre = trim($_POST['nombre']);
   $descripcion = trim($_POST['descripcion'] ?? '');
   $video_url = trim($_POST['video_url'] ?? '');
   $icono = trim($_POST['icono'] ?? '');
-  $imagen = subirArchivo('imagen', ['jpg', 'jpeg', 'png', 'gif']);
-  $pdf = subirArchivo('pdf', ['pdf']);
+  $exito = false;
 
   if ($video_url !== '' && !preg_match('/^https?:\/\//i', $video_url)) {
     $video_url = 'https://'.$video_url;
@@ -76,66 +80,58 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['nombre']) && empty($_PO
   }
 
   if ($nombre !== '') {
-    $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf, icono) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("issssss", $actividad_id, $nombre, $descripcion, $imagen, $video_url, $pdf, $icono);
-    $stmt->execute();
-  }
-  header("Location: retos.php?actividad_id=".$actividad_id); exit;
-}
-
-// Actualizar reto
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['reto_id']) && !empty($_POST['reto_id'])) {
-  $retoId = (int)$_POST['reto_id'];
-  $nombre = trim($_POST['nombre']);
-  $descripcion = trim($_POST['descripcion'] ?? '');
-  $video_url = trim($_POST['video_url'] ?? '');
-  $icono = trim($_POST['icono'] ?? '');
-  if ($video_url !== '' && !preg_match('/^https?:\/\//i', $video_url)) {
-    $video_url = 'https://'.$video_url;
-  }
-  if ($video_url === '') {
-    $video_url = null;
-  }
-  if ($icono === '') {
-    $icono = null;
-  }
-
-  $stmt = $conn->prepare("SELECT imagen, pdf FROM retos WHERE id=? AND actividad_id=?");
-  $stmt->bind_param("ii", $retoId, $actividad_id);
-  $stmt->execute();
-  $actual = $stmt->get_result()->fetch_assoc();
-  if ($actual) {
-    $imagen = $actual['imagen'];
-    $pdf = $actual['pdf'];
-
-    $nuevaImagen = subirArchivo('imagen', ['jpg', 'jpeg', 'png', 'gif']);
-    if ($nuevaImagen) {
-      if (!empty($imagen)) {
-        $ruta = __DIR__.'/'.$imagen;
-        if (is_file($ruta)) {
-          unlink($ruta);
-        }
-      }
-      $imagen = $nuevaImagen;
-    }
-
-    $nuevoPdf = subirArchivo('pdf', ['pdf']);
-    if ($nuevoPdf) {
-      if (!empty($pdf)) {
-        $ruta = __DIR__.'/'.$pdf;
-        if (is_file($ruta)) {
-          unlink($ruta);
-        }
-      }
-      $pdf = $nuevoPdf;
-    }
-
-    if ($nombre !== '') {
-      $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=?, icono=? WHERE id=? AND actividad_id=?");
-      $stmt->bind_param("ssssssii", $nombre, $descripcion, $imagen, $video_url, $pdf, $icono, $retoId, $actividad_id);
+    if ($retoId > 0) {
+      $stmt = $conn->prepare("SELECT imagen, pdf FROM retos WHERE id=? AND actividad_id=?");
+      $stmt->bind_param("ii", $retoId, $actividad_id);
       $stmt->execute();
+      if ($actual = $stmt->get_result()->fetch_assoc()) {
+        $imagen = $actual['imagen'];
+        $pdf = $actual['pdf'];
+
+        $nuevaImagen = subirArchivo('imagen', ['jpg', 'jpeg', 'png', 'gif']);
+        if ($nuevaImagen) {
+          if (!empty($imagen)) {
+            $ruta = __DIR__.'/'.$imagen;
+            if (is_file($ruta)) {
+              unlink($ruta);
+            }
+          }
+          $imagen = $nuevaImagen;
+        }
+
+        $nuevoPdf = subirArchivo('pdf', ['pdf']);
+        if ($nuevoPdf) {
+          if (!empty($pdf)) {
+            $ruta = __DIR__.'/'.$pdf;
+            if (is_file($ruta)) {
+              unlink($ruta);
+            }
+          }
+          $pdf = $nuevoPdf;
+        }
+
+        $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=?, icono=? WHERE id=? AND actividad_id=?");
+        $stmt->bind_param("ssssssii", $nombre, $descripcion, $imagen, $video_url, $pdf, $icono, $retoId, $actividad_id);
+        $exito = $stmt->execute();
+      }
+    } else {
+      $imagen = subirArchivo('imagen', ['jpg', 'jpeg', 'png', 'gif']);
+      $pdf = subirArchivo('pdf', ['pdf']);
+
+      $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf, icono) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      $stmt->bind_param("issssss", $actividad_id, $nombre, $descripcion, $imagen, $video_url, $pdf, $icono);
+      $exito = $stmt->execute();
     }
   }
+
+  if ($exito) {
+    $_SESSION['estado_reto'] = $retoId > 0 ? 'Reto actualizado correctamente.' : 'Reto creado correctamente.';
+    $_SESSION['estado_reto_tipo'] = 'success';
+  } else {
+    $_SESSION['estado_reto'] = $retoId > 0 ? 'No fue posible actualizar el reto seleccionado.' : 'No se pudo crear el reto.';
+    $_SESSION['estado_reto_tipo'] = 'danger';
+  }
+
   header("Location: retos.php?actividad_id=".$actividad_id); exit;
 }
 
@@ -171,6 +167,10 @@ $retos = $res->get_result();
   <h3>Retos - <?= htmlspecialchars($actividad['nombre']) ?></h3>
   <a href="actividades.php" class="btn btn-outline-secondary">Volver</a>
 </div>
+
+<?php if ($estadoMensaje): ?>
+  <div class="alert alert-<?= htmlspecialchars($estadoTipo) ?>"><?= htmlspecialchars($estadoMensaje) ?></div>
+<?php endif; ?>
 
 <?php if ($retoEdit): ?>
   <div class="alert alert-info">Editando reto <strong><?= htmlspecialchars($retoEdit['nombre']) ?></strong>. <a href="retos.php?actividad_id=<?= $actividad_id ?>" class="alert-link">Cancelar</a></div>
