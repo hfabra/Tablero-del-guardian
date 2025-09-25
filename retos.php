@@ -59,7 +59,7 @@ if (!$actividad) {
 $retoEdit = null;
 if (isset($_GET['editar'])) {
   $editarId = (int)$_GET['editar'];
-  $stmt = $conn->prepare("SELECT id, nombre, descripcion, imagen, video_url, pdf FROM retos WHERE id=? AND actividad_id=?");
+$stmt = $conn->prepare("SELECT id, nombre, descripcion, contenido_blog, imagen, video_url, pdf FROM retos WHERE id=? AND actividad_id=?");
   $stmt->bind_param("ii", $editarId, $actividad_id);
   $stmt->execute();
   $retoEdit = $stmt->get_result()->fetch_assoc();
@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['nombre']) && empty($_PO
   $nombre = trim($_POST['nombre']);
   $descripcion = trim($_POST['descripcion'] ?? '');
   $video_url = trim($_POST['video_url'] ?? '');
+  $contenido_blog = trim($_POST['contenido_blog'] ?? '');
   $imagen = subirArchivo('imagen', ['jpg', 'jpeg', 'png', 'gif']);
   $pdf = subirArchivo('pdf', ['pdf']);
 
@@ -78,10 +79,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['nombre']) && empty($_PO
   if ($video_url === '') {
     $video_url = null;
   }
+  if ($contenido_blog === '') {
+    $contenido_blog = null;
+  }
 
   if ($nombre !== '') {
-    $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isssss", $actividad_id, $nombre, $descripcion, $imagen, $video_url, $pdf);
+    $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, contenido_blog, imagen, video_url, pdf) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("issssss", $actividad_id, $nombre, $descripcion, $contenido_blog, $imagen, $video_url, $pdf);
     $stmt->execute();
   }
   header("Location: retos.php?actividad_id=".$actividad_id); exit;
@@ -93,11 +97,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['reto_id']) && !empty($_
   $nombre = trim($_POST['nombre']);
   $descripcion = trim($_POST['descripcion'] ?? '');
   $video_url = trim($_POST['video_url'] ?? '');
+  $contenido_blog = trim($_POST['contenido_blog'] ?? '');
   if ($video_url !== '' && !preg_match('/^https?:\/\//i', $video_url)) {
     $video_url = 'https://'.$video_url;
   }
   if ($video_url === '') {
     $video_url = null;
+  }
+  if ($contenido_blog === '') {
+    $contenido_blog = null;
   }
 
   $stmt = $conn->prepare("SELECT imagen, pdf FROM retos WHERE id=? AND actividad_id=?");
@@ -131,8 +139,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['reto_id']) && !empty($_
     }
 
     if ($nombre !== '') {
-      $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=? WHERE id=? AND actividad_id=?");
-      $stmt->bind_param("sssssii", $nombre, $descripcion, $imagen, $video_url, $pdf, $retoId, $actividad_id);
+      $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, contenido_blog=?, imagen=?, video_url=?, pdf=? WHERE id=? AND actividad_id=?");
+      $stmt->bind_param("ssssssii", $nombre, $descripcion, $contenido_blog, $imagen, $video_url, $pdf, $retoId, $actividad_id);
       $stmt->execute();
     }
   }
@@ -217,6 +225,11 @@ $retos = $res->get_result();
         <?php if (!empty($retoEdit) && !empty($retoEdit['pdf'])): ?><div class="form-text mb-2">Se reemplazará el documento existente.</div><?php endif; ?>
         <input type="file" id="pdf" name="pdf" class="form-control" accept="application/pdf">
       </div>
+      <div class="col-12">
+        <label for="contenido_blog" class="form-label fw-semibold">Contenido ampliado</label>
+        <textarea id="contenido_blog" name="contenido_blog" class="form-control" rows="10" placeholder="Redacta la guía completa del reto, agrega imágenes, encabezados y más."><?= htmlspecialchars($retoEdit['contenido_blog'] ?? '') ?></textarea>
+        <div class="form-text">Utiliza el editor para escribir instrucciones largas o recursos adicionales al estilo de un blog.</div>
+      </div>
       <div class="col-lg-4 d-grid align-content-end">
         <button class="btn btn-primary btn-icon btn-lg">
           <i class="bi <?= $retoEdit ? 'bi-arrow-repeat' : 'bi-plus-circle' ?>"></i>
@@ -264,5 +277,22 @@ $retos = $res->get_result();
     </table>
   </div>
 </div>
+
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+  tinymce.init({
+    selector: '#contenido_blog',
+    language: 'es',
+    height: 360,
+    menubar: false,
+    plugins: 'link lists image table media autoresize code',
+    toolbar: 'undo redo | blocks | bold italic underline forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat code',
+    branding: false,
+    convert_urls: false,
+    image_caption: true,
+    image_title: true,
+    content_style: "body { font-family: 'Inter', sans-serif; font-size: 16px; }"
+  });
+</script>
 
 <?php include 'includes/footer.php'; ?>
