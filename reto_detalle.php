@@ -4,9 +4,7 @@ require_once 'includes/protect.php';
 include 'includes/header.php';
 
 $columnaIcono = $conn->query("SHOW COLUMNS FROM retos LIKE 'icono'");
-if ($columnaIcono && $columnaIcono->num_rows === 0) {
-    $conn->query("ALTER TABLE retos ADD COLUMN icono VARCHAR(10) DEFAULT '🎯' AFTER pdf");
-}
+$iconosHabilitados = ($columnaIcono instanceof mysqli_result && $columnaIcono->num_rows > 0);
 if ($columnaIcono instanceof mysqli_result) {
     $columnaIcono->free();
 }
@@ -29,7 +27,8 @@ if ($reto_id <= 0) {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT r.id, r.nombre, r.descripcion, r.imagen, r.video_url, r.pdf, r.icono, a.id AS actividad_id, a.nombre AS actividad_nombre FROM retos r INNER JOIN actividades a ON r.actividad_id = a.id WHERE r.id = ?");
+$selectCols = "r.id, r.nombre, r.descripcion, r.imagen, r.video_url, r.pdf" . ($iconosHabilitados ? ", r.icono" : "");
+$stmt = $conn->prepare("SELECT $selectCols, a.id AS actividad_id, a.nombre AS actividad_nombre FROM retos r INNER JOIN actividades a ON r.actividad_id = a.id WHERE r.id = ?");
 $stmt->bind_param("i", $reto_id);
 $stmt->execute();
 $reto = $stmt->get_result()->fetch_assoc();

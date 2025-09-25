@@ -13,10 +13,9 @@ $iconosDisponibles = [
   '🧩' => 'Rompecabezas'
 ];
 
+// Confirmar que la tabla tiene soporte para iconos sin alterar el esquema en tiempo de ejecución.
 $columnaIcono = $conn->query("SHOW COLUMNS FROM retos LIKE 'icono'");
-if ($columnaIcono && $columnaIcono->num_rows === 0) {
-  $conn->query("ALTER TABLE retos ADD COLUMN icono VARCHAR(10) DEFAULT '🎯' AFTER pdf");
-}
+$iconosHabilitados = ($columnaIcono instanceof mysqli_result && $columnaIcono->num_rows > 0);
 if ($columnaIcono instanceof mysqli_result) {
   $columnaIcono->free();
 }
@@ -70,10 +69,10 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['guardar_reto'])) {
   $nombre = trim($_POST['nombre']);
   $descripcion = trim($_POST['descripcion'] ?? '');
   $video_url = trim($_POST['video_url'] ?? '');
-  $icono = $_POST['icono'] ?? '';
+  $icono = $iconosHabilitados ? ($_POST['icono'] ?? '') : '🎯';
   $reto_id = isset($_POST['reto_id']) ? (int)$_POST['reto_id'] : 0;
 
-  if (!array_key_exists($icono, $iconosDisponibles)) {
+  if ($iconosHabilitados && !array_key_exists($icono, $iconosDisponibles)) {
     $claves = array_keys($iconosDisponibles);
     $icono = $claves[0];
   }
@@ -114,12 +113,22 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['guardar_reto'])) {
         $pdfActual = $pdfSubido;
       }
 
-      $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=?, icono=? WHERE id=? AND actividad_id=?");
-      $stmt->bind_param("ssssssii", $nombre, $descripcion, $imagenActual, $video_url, $pdfActual, $icono, $reto_id, $actividad_id);
+      if ($iconosHabilitados) {
+        $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=?, icono=? WHERE id=? AND actividad_id=?");
+        $stmt->bind_param("ssssssii", $nombre, $descripcion, $imagenActual, $video_url, $pdfActual, $icono, $reto_id, $actividad_id);
+      } else {
+        $stmt = $conn->prepare("UPDATE retos SET nombre=?, descripcion=?, imagen=?, video_url=?, pdf=? WHERE id=? AND actividad_id=?");
+        $stmt->bind_param("sssssii", $nombre, $descripcion, $imagenActual, $video_url, $pdfActual, $reto_id, $actividad_id);
+      }
       $stmt->execute();
     } else {
-      $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf, icono) VALUES (?, ?, ?, ?, ?, ?, ?)");
-      $stmt->bind_param("issssss", $actividad_id, $nombre, $descripcion, $imagenSubida, $video_url, $pdfSubido, $icono);
+      if ($iconosHabilitados) {
+        $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf, icono) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssss", $actividad_id, $nombre, $descripcion, $imagenSubida, $video_url, $pdfSubido, $icono);
+      } else {
+        $stmt = $conn->prepare("INSERT INTO retos (actividad_id, nombre, descripcion, imagen, video_url, pdf) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssss", $actividad_id, $nombre, $descripcion, $imagenSubida, $video_url, $pdfSubido);
+      }
       $stmt->execute();
     }
   }
@@ -150,7 +159,8 @@ if (isset($_GET['eliminar'])) {
   header("Location: retos.php?actividad_id=".$actividad_id); exit;
 }
 
-$res = $conn->prepare("SELECT id, nombre, descripcion, imagen, video_url, pdf, icono FROM retos WHERE actividad_id=? ORDER BY id DESC");
+$selectCols = "id, nombre, descripcion, imagen, video_url, pdf" . ($iconosHabilitados ? ", icono" : "");
+$res = $conn->prepare("SELECT $selectCols FROM retos WHERE actividad_id=? ORDER BY id DESC");
 $res->bind_param("i", $actividad_id);
 $res->execute();
 $retos = $res->get_result();
@@ -158,7 +168,8 @@ $retos = $res->get_result();
 $retoEditar = null;
 if (isset($_GET['editar'])) {
   $editar_id = (int)$_GET['editar'];
-  $stmt = $conn->prepare("SELECT id, nombre, descripcion, imagen, video_url, pdf, icono FROM retos WHERE id=? AND actividad_id=?");
+  $selectCols = "id, nombre, descripcion, imagen, video_url, pdf" . ($iconosHabilitados ? ", icono" : "");
+  $stmt = $conn->prepare("SELECT $selectCols FROM retos WHERE id=? AND actividad_id=?");
   $stmt->bind_param("ii", $editar_id, $actividad_id);
   $stmt->execute();
   $retoEditar = $stmt->get_result()->fetch_assoc();
@@ -169,38 +180,49 @@ if (isset($_GET['editar'])) {
   <a href="actividades.php" class="btn btn-outline-secondary">Volver</a>
 </div>
 
+<?php if (!$iconosHabilitados): ?>
+  <div class="alert alert-warning">El esquema actual no admite iconos personalizados. Actualiza la base de datos con la última versión del archivo <code>sql/tablero_puntuaciones.sql</code> para habilitarlos.</div>
+<?php endif; ?>
+
 <form method="post" class="row g-3 mb-4" enctype="multipart/form-data">
   <input type="hidden" name="guardar_reto" value="1">
   <input type="hidden" name="reto_id" value="<?= $retoEditar['id'] ?? 0 ?>">
   <div class="col-md-4">
-    <input type="text" name="nombre" class="form-control" placeholder="Nombre del reto" value="<?= htmlspecialchars($retoEditar['nombre'] ?? '') ?>" required>
+    <label class="form-label" for="nombre-reto">Nombre del reto</label>
+    <input id="nombre-reto" type="text" name="nombre" class="form-control" placeholder="Nombre del reto" value="<?= htmlspecialchars($retoEditar['nombre'] ?? '') ?>" required>
   </div>
   <div class="col-md-4">
-    <input type="text" name="descripcion" class="form-control" placeholder="Descripción (opcional)" value="<?= htmlspecialchars($retoEditar['descripcion'] ?? '') ?>">
+    <label class="form-label" for="descripcion-reto">Descripción</label>
+    <textarea id="descripcion-reto" name="descripcion" class="form-control" rows="2" placeholder="Descripción breve del reto (opcional)"><?= htmlspecialchars($retoEditar['descripcion'] ?? '') ?></textarea>
   </div>
   <div class="col-md-4">
-    <input type="url" name="video_url" class="form-control" placeholder="URL de video de YouTube (opcional)" value="<?= htmlspecialchars($retoEditar['video_url'] ?? '') ?>">
+    <label class="form-label" for="video-reto">Video de YouTube</label>
+    <input id="video-reto" type="url" name="video_url" class="form-control" placeholder="https://www.youtube.com/watch?v=..." value="<?= htmlspecialchars($retoEditar['video_url'] ?? '') ?>">
+    <div class="form-text">Pega el enlace completo del video (opcional).</div>
   </div>
-  <div class="col-md-4">
-    <label class="form-label">Icono del reto</label>
-    <select name="icono" class="form-select" required>
-      <?php foreach ($iconosDisponibles as $iconoValor => $iconoNombre): ?>
-        <option value="<?= htmlspecialchars($iconoValor) ?>" <?= (($retoEditar['icono'] ?? '') === $iconoValor) ? 'selected' : '' ?>><?= $iconoValor ?> - <?= htmlspecialchars($iconoNombre) ?></option>
-      <?php endforeach; ?>
-    </select>
-  </div>
+  <?php if ($iconosHabilitados): ?>
+    <div class="col-md-4">
+      <label class="form-label" for="icono-reto">Icono del reto</label>
+      <select id="icono-reto" name="icono" class="form-select" required>
+        <?php foreach ($iconosDisponibles as $iconoValor => $iconoNombre): ?>
+          <option value="<?= htmlspecialchars($iconoValor) ?>" <?= (($retoEditar['icono'] ?? '') === $iconoValor) ? 'selected' : '' ?>><?= $iconoValor ?> - <?= htmlspecialchars($iconoNombre) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+  <?php endif; ?>
   <div class="col-md-4">
     <label class="form-label">Imagen (opcional)</label>
     <input type="file" name="imagen" class="form-control" accept="image/*">
     <?php if (!empty($retoEditar['imagen'])): ?>
-      <div class="form-text">Se mantiene la imagen actual a menos que selecciones una nueva.</div>
+      <div class="form-text">Imagen actual:</div>
+      <img src="<?= htmlspecialchars($retoEditar['imagen']) ?>" alt="Imagen del reto" class="img-thumbnail" style="max-width: 140px;">
     <?php endif; ?>
   </div>
   <div class="col-md-4">
     <label class="form-label">Archivo PDF (opcional)</label>
     <input type="file" name="pdf" class="form-control" accept="application/pdf">
     <?php if (!empty($retoEditar['pdf'])): ?>
-      <div class="form-text">Se mantiene el PDF actual a menos que cargues uno nuevo.</div>
+      <div class="form-text">Documento cargado: <a href="<?= htmlspecialchars($retoEditar['pdf']) ?>" target="_blank" rel="noopener">Abrir PDF actual</a></div>
     <?php endif; ?>
   </div>
   <div class="col-md-4 d-grid align-content-end">
