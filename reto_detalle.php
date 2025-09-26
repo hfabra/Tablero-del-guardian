@@ -14,73 +14,15 @@ function obtenerEmbedYoutube(?string $url): ?string {
     return null;
 }
 
-function dominioIframePermitido(string $host, array $permitidos): bool {
-    $host = strtolower($host);
-    foreach ($permitidos as $permitido) {
-        $permitido = strtolower($permitido);
-        if ($host === $permitido) {
-            return true;
-        }
-        $sufijo = '.' . $permitido;
-        if (substr($host, -strlen($sufijo)) === $sufijo) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function limpiarContenidoBlog(?string $html): string {
     if ($html === null) {
         return '';
     }
-    $permitidos = '<p><a><strong><em><u><ol><ul><li><h1><h2><h3><h4><h5><h6><blockquote><img><figure><figcaption><table><thead><tbody><tr><th><td><span><br><hr><pre><code><div><iframe>';
+    $permitidos = '<>iframe<p><a><strong><em><u><ol><ul><li><h1><h2><h3><h4><h5><h6><blockquote><img><figure><figcaption><table><thead><tbody><tr><th><td><span><br><hr><pre><code><div>';
     $sanitizado = strip_tags($html, $permitidos);
     $sanitizado = preg_replace('/on\w+\s*=\s*("|\').*?\1/i', '', $sanitizado);
     $sanitizado = preg_replace('/(href|src)\s*=\s*"javascript:[^"]*"/i', '$1="#"', $sanitizado);
     $sanitizado = preg_replace("/(href|src)\s*=\s*'javascript:[^']*'/i", "$1='#'", $sanitizado);
-
-    $dominiosIframe = ['genial.ly', 'view.genial.ly', 'youtube.com', 'youtu.be', 'www.youtube.com', 'player.vimeo.com', 'vimeo.com', 'docs.google.com'];
-    $sanitizado = preg_replace_callback('/<iframe\b([^>]*)>(.*?)<\/iframe>/is', static function ($coincidencias) use ($dominiosIframe) {
-        $atributosCadena = $coincidencias[1] ?? '';
-        if (!preg_match('/\s(src)\s*=\s*(\"|\')(.*?)(\2)/i', $atributosCadena, $srcCoincidencia)) {
-            return '';
-        }
-
-        $src = trim($srcCoincidencia[3]);
-        $url = parse_url($src);
-        if (!$url || empty($url['scheme']) || strtolower($url['scheme']) !== 'https' || empty($url['host']) || !dominioIframePermitido($url['host'], $dominiosIframe)) {
-            return '';
-        }
-
-        $atributosPermitidos = ['src', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'style', 'title', 'frameborder'];
-        $atributos = [];
-        if (preg_match_all('/([a-zA-Z0-9_-]+)\s*=\s*(\"|\')(.*?)(\2)/', $atributosCadena, $attrMatches, PREG_SET_ORDER)) {
-            foreach ($attrMatches as $attr) {
-                $nombre = strtolower($attr[1]);
-                if (in_array($nombre, $atributosPermitidos, true)) {
-                    $valor = htmlspecialchars($attr[3], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                    $atributos[$nombre] = $valor;
-                }
-            }
-        }
-
-        if (preg_match('/\sallowfullscreen\b/i', $atributosCadena)) {
-            $atributos['allowfullscreen'] = 'true';
-        }
-
-        $atributos['src'] = htmlspecialchars($src, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        if (!isset($atributos['loading'])) {
-            $atributos['loading'] = 'lazy';
-        }
-
-        $atributosOrdenados = '';
-        foreach ($atributos as $nombre => $valor) {
-            $atributosOrdenados .= ' ' . $nombre . '="' . $valor . '"';
-        }
-
-        return '<iframe' . $atributosOrdenados . '></iframe>';
-    });
-
     return $sanitizado;
 }
 
