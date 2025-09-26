@@ -290,7 +290,8 @@ $retos = $res->get_result();
     convert_urls: false,
     image_caption: true,
     image_title: true,
-    content_style: "body { font-family: 'Inter', sans-serif; font-size: 16px; }"
+    extended_valid_elements: 'iframe[src|frameborder|style|scrolling|class|width|height|name|title|allow|allowfullscreen|referrerpolicy|loading]',
+    content_style: "body { font-family: 'Inter', sans-serif; font-size: 16px; } iframe { max-width: 100%; border: none; }"
   });
 </script>
 
